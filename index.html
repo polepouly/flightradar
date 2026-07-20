@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Radar Duel — Devinez l'avion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --bg:#0A0E1A;
+  --bg-deep:#060811;
+  --panel:#121A2E;
+  --panel-2:#182241;
+  --line:#243155;
+  --amber:#F4A340;
+  --amber-dim:#8a6222;
+  --cyan:#5EEAD4;
+  --cyan-dim:#1f5a51;
+  --text:#EDEFF5;
+  --muted:#8B93A7;
+  --good:#4ADE80;
+  --bad:#F76E6E;
+  --radius:14px;
+  --shadow: 0 20px 60px rgba(0,0,0,0.45);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background: radial-gradient(ellipse at 50% -10%, #101a33 0%, var(--bg) 55%, var(--bg-deep) 100%);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+button{font-family:inherit;cursor:pointer;}
+::selection{background:var(--amber);color:#1a1200;}
+
+/* ---------- layout shell ---------- */
+.app{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:0 0 40px;}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px 14px;position:sticky;top:0;z-index:20;
+  background:linear-gradient(to bottom, rgba(10,14,26,0.97) 70%, rgba(10,14,26,0));
+  backdrop-filter:blur(6px);
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{
+  width:34px;height:34px;border-radius:50%;
+  border:2px solid var(--cyan);position:relative;flex:none;
+  box-shadow:0 0 14px rgba(94,234,212,0.35);
+}
+.brand-mark::after{
+  content:"";position:absolute;top:50%;left:50%;width:2px;height:15px;
+  background:var(--cyan);transform-origin:top center;
+  animation:sweep 3s linear infinite;
+}
+@keyframes sweep{from{transform:translate(-50%,0) rotate(0deg);}to{transform:translate(-50%,0) rotate(360deg);}}
+.brand-text{line-height:1.1;}
+.brand-text .t1{font-size:15px;font-weight:700;letter-spacing:0.02em;}
+.brand-text .t2{font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;}
+.round-pill{
+  font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);
+  border:1px solid var(--amber-dim);padding:5px 10px;border-radius:999px;
+  background:rgba(244,163,64,0.08);
+}
+
+.scoreboard{
+  display:flex;gap:10px;padding:0 20px 14px;
+}
+.score-card{
+  flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:10px 12px;display:flex;flex-direction:column;gap:2px;position:relative;overflow:hidden;
+}
+.score-card.leading{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;}
+.score-card .name{font-size:12px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.score-card .pts{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;color:var(--text);}
+.score-card .pts span{font-size:12px;color:var(--muted);font-weight:500;font-family:'Inter',sans-serif;}
+
+main{flex:1;padding:0 20px;}
+.screen{display:none;animation:fadein .25s ease;}
+.screen.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px;margin-bottom:16px;
+}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--cyan);font-weight:600;margin-bottom:6px;}
+h1.page-title{font-size:26px;margin:2px 0 8px;font-weight:700;}
+p.lead{color:var(--muted);font-size:14.5px;line-height:1.55;margin:0 0 18px;}
+
+label.field-label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600;}
+input[type=text], input[type=number]{
+  width:100%;background:var(--bg-deep);border:1px solid var(--line);color:var(--text);
+  padding:12px 13px;border-radius:9px;font-size:15px;font-family:inherit;outline:none;
+  transition:border-color .15s;
+}
+input[type=text]:focus, input[type=number]:focus{border-color:var(--cyan);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.field{margin-bottom:14px;}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:13px 20px;border-radius:10px;border:none;font-weight:600;font-size:14.5px;
+  width:100%;transition:transform .1s, filter .15s;
+}
+.btn:active{transform:scale(0.98);}
+.btn-primary{background:var(--amber);color:#1a1200;}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-primary:disabled{opacity:0.4;pointer-events:none;}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan);}
+.btn-cyan{background:var(--cyan);color:#04211c;}
+.btn-sm{padding:9px 14px;font-size:13px;width:auto;}
+.btn-row{display:flex;gap:10px;}
+.link-btn{background:none;border:none;color:var(--cyan);font-size:13px;font-weight:600;padding:6px 0;width:auto;text-decoration:underline;text-underline-offset:3px;}
+
+.divider-text{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:16px 0;text-transform:uppercase;letter-spacing:0.08em;}
+.divider-text::before,.divider-text::after{content:"";flex:1;height:1px;background:var(--line);}
+
+/* ---------- radar ---------- */
+.radar-wrap{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px;}
+.radar{
+  position:relative;width:100%;max-width:340px;aspect-ratio:1/1;border-radius:50%;
+  background:radial-gradient(circle, #0d1830 0%, #081020 70%, #060b18 100%);
+  border:1px solid var(--line);box-shadow:inset 0 0 40px rgba(0,0,0,0.6), 0 0 0 6px rgba(94,234,212,0.03);
+  overflow:hidden;
+}
+.radar .ring{position:absolute;border:1px solid rgba(94,234,212,0.14);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);}
+.radar .ring1{width:33%;height:33%;}
+.radar .ring2{width:66%;height:66%;}
+.radar .ring3{width:100%;height:100%;}
+.radar .ring-label{position:absolute;font-size:9px;color:rgba(139,147,167,0.7);font-family:'JetBrains Mono',monospace;left:50%;transform:translateX(4px);}
+.radar .crosshair-v, .radar .crosshair-h{position:absolute;background:rgba(94,234,212,0.1);}
+.radar .crosshair-v{width:1px;top:0;bottom:0;left:50%;}
+.radar .crosshair-h{height:1px;left:0;right:0;top:50%;}
+.radar .compass{position:absolute;font-size:10px;color:var(--muted);font-weight:700;font-family:'JetBrains Mono',monospace;}
+.radar .compass.n{top:6px;left:50%;transform:translateX(-50%);}
+.radar .compass.s{bottom:6px;left:50%;transform:translateX(-50%);}
+.radar .compass.e{right:7px;top:50%;transform:translateY(-50%);}
+.radar .compass.w{left:7px;top:50%;transform:translateY(-50%);}
+.radar .sweep{
+  position:absolute;top:50%;left:50%;width:50%;height:2px;
+  background:linear-gradient(to right, rgba(94,234,212,0.55), transparent);
+  transform-origin:left center;animation:radarspin 4s linear infinite;
+}
+.radar .sweep::after{content:"";position:absolute;left:0;top:0;bottom:0;width:100%;height:120px;
+  background:conic-gradient(from 0deg, rgba(94,234,212,0.18), transparent 35%);
+  transform-origin:0 0;}
+@keyframes radarspin{from{transform:translate(0,-50%) rotate(0deg);}to{transform:translate(0,-50%) rotate(360deg);}}
+.radar .you{
+  position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px;border-radius:50%;
+  background:var(--amber);box-shadow:0 0 10px 3px rgba(244,163,64,0.6);z-index:5;
+}
+.blip{
+  position:absolute;top:50%;left:50%;width:11px;height:11px;margin:-5.5px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 8px 2px rgba(94,234,212,0.55);cursor:pointer;
+  z-index:6;transition:transform .15s;
+}
+.blip::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(94,234,212,0.4);
+  animation:pulse 1.8s ease-out infinite;}
+@keyframes pulse{0%{transform:scale(0.4);opacity:0.9;}100%{transform:scale(1.6);opacity:0;}}
+.blip:hover{transform:scale(1.3);}
+.radar-caption{font-size:12px;color:var(--muted);margin-top:10px;text-align:center;font-family:'JetBrains Mono',monospace;}
+
+/* ---------- radius control ---------- */
+.radius-control{margin-bottom:14px;}
+.radius-options{display:flex;flex-wrap:wrap;gap:8px;}
+.radius-btn{
+  border:1px solid var(--line);background:var(--bg-deep);color:var(--muted);
+  border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;width:auto;
+  font-family:'JetBrains Mono',monospace;transition:all .15s;
+}
+.radius-btn.active{background:rgba(244,163,64,0.12);border-color:var(--amber);color:var(--amber);}
+.radius-btn.custom-active{background:rgba(94,234,212,0.12);border-color:var(--cyan);color:var(--cyan);}
+.radius-custom{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.radius-custom input[type=number]{width:90px;}
+.radius-custom span{font-size:12.5px;color:var(--muted);}
+
+/* ---------- map ---------- */
+.map-wrap{
+  width:100%;height:340px;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line);position:relative;
+  box-shadow: 0 0 0 6px rgba(94,234,212,0.03);
+}
+#leafletMap{width:100%;height:100%;background:#0d1830;}
+.leaflet-container{font-family:'Inter',sans-serif;background:#0d1830;}
+.leaflet-control-attribution{background:rgba(10,14,26,0.75) !important;color:var(--muted) !important;font-size:9px !important;}
+.leaflet-control-attribution a{color:var(--cyan) !important;}
+.leaflet-control-zoom a{background:var(--panel) !important;color:var(--text) !important;border-color:var(--line) !important;}
+.leaflet-control-zoom a:hover{background:var(--panel-2) !important;}
+.leaflet-tooltip{
+  background:var(--panel) !important;color:var(--text) !important;border:1px solid var(--cyan-dim) !important;
+  font-family:'JetBrains Mono',monospace;font-size:12px;box-shadow:var(--shadow);
+}
+.leaflet-tooltip-top:before{border-top-color:var(--cyan-dim) !important;}
+.user-marker{
+  width:14px;height:14px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 0 3px rgba(244,163,64,0.25), 0 0 10px 3px rgba(244,163,64,0.6);
+}
+.plane-marker-inner{width:26px;height:26px;display:flex;align-items:center;justify-content:center;}
+.plane-marker-inner svg{width:20px;height:20px;fill:var(--cyan);filter:drop-shadow(0 0 4px rgba(94,234,212,0.8));cursor:pointer;}
+.plane-marker-hl .plane-marker-inner svg{fill:var(--amber);filter:drop-shadow(0 0 5px rgba(244,163,64,0.9));}
+
+.status-line{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);padding:10px 2px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none;}
+.dot.live{background:var(--good);box-shadow:0 0 6px var(--good);}
+.dot.err{background:var(--bad);}
+
+/* plane list */
+.plane-list{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+.plane-card{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;
+  display:flex;align-items:center;gap:12px;transition:border-color .15s, background .15s;
+}
+.plane-card:hover{border-color:var(--cyan);}
+.plane-card .heading-badge{
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--cyan-dim);flex:none;
+  display:flex;align-items:center;justify-content:center;background:rgba(94,234,212,0.06);
+}
+.plane-card .heading-badge svg{width:18px;height:18px;fill:var(--cyan);}
+.plane-card .info{flex:1;min-width:0;}
+.plane-card .callsign{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;letter-spacing:0.02em;}
+.plane-card .meta{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.plane-card .pick{
+  flex:none;background:var(--amber);color:#1a1200;border:none;border-radius:8px;
+  padding:9px 14px;font-weight:700;font-size:13px;
+}
+
+.manual-add{margin-top:14px;}
+
+/* guess screen */
+.plane-chip{
+  display:flex;align-items:center;gap:12px;background:var(--panel-2);border:1px solid var(--cyan-dim);
+  border-radius:12px;padding:14px 16px;margin-bottom:18px;
+}
+.plane-chip .callsign-big{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;color:var(--cyan);}
+.plane-chip .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+.guess-block{border-top:1px solid var(--line);padding-top:16px;margin-top:16px;}
+.guess-block:first-of-type{border-top:none;padding-top:0;margin-top:0;}
+.guess-block .player-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.player-badge{width:22px;height:22px;border-radius:50%;background:var(--amber);color:#1a1200;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;}
+
+/* reveal */
+.reveal-route{display:flex;align-items:center;gap:10px;margin:6px 0 20px;}
+.airport-block{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0;}
+.airport-block .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:700;margin-bottom:6px;}
+.airport-block .city{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;line-height:1.2;}
+.airport-block .country{font-size:13px;color:var(--muted);margin-top:2px;}
+.airport-block .iata{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-top:6px;}
+.route-arrow{flex:none;color:var(--amber);font-size:20px;}
+
+.compare-row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:8px 0;border-bottom:1px dashed var(--line);}
+.compare-row:last-child{border-bottom:none;}
+.compare-row .g-label{color:var(--muted);}
+.compare-row .g-val{font-family:'JetBrains Mono',monospace;font-weight:600;}
+
+.point-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.toggle-btn{
+  border:1px solid var(--line);background:transparent;color:var(--muted);
+  border-radius:999px;padding:8px 13px;font-size:12.5px;font-weight:600;width:auto;
+  display:flex;align-items:center;gap:6px;
+}
+.toggle-btn.on{background:rgba(74,222,128,0.12);border-color:var(--good);color:var(--good);}
+.round-points{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:var(--amber);}
+
+.empty-note{
+  text-align:center;padding:30px 16px;color:var(--muted);font-size:13.5px;
+}
+.rules-toggle{position:fixed;bottom:16px;right:16px;z-index:30;}
+.rules-fab{
+  width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--line);
+  color:var(--muted);font-size:16px;font-weight:700;box-shadow:var(--shadow);
+}
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(4,6,12,0.7);backdrop-filter:blur(3px);z-index:40;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.modal-backdrop.active{display:flex;}
+.modal{
+  background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;
+  max-width:560px;width:100%;padding:22px 20px 28px;max-height:80vh;overflow-y:auto;
+}
+.modal h3{margin-top:0;}
+.modal ul{padding-left:18px;color:var(--muted);font-size:14px;line-height:1.7;}
+.modal ul li b{color:var(--text);}
+
+.history-item{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:7px 0;border-bottom:1px dashed var(--line);}
+.history-item:last-child{border-bottom:none;}
+
+@media (max-width:380px){
+  .row2{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <div class="t1">Radar Duel</div>
+        <div class="t2">D'où vient-il, où va-t-il ?</div>
+      </div>
+    </div>
+    <div class="round-pill mono" id="roundPill">Manche 0</div>
+  </div>
+
+  <div class="scoreboard" id="scoreboard" style="display:none;"></div>
+
+  <main>
+
+    <!-- SETUP -->
+    <section class="screen active" id="screen-setup">
+      <div class="card">
+        <div class="eyebrow">Nouvelle partie</div>
+        <h1 class="page-title">Repérez un avion, devinez son vol</h1>
+        <p class="lead">Deux joueurs, un ciel. Chacun devine le pays d'origine et le pays de destination de l'avion repéré — les points s'affichent à la révélation.</p>
+
+        <div class="row2">
+          <div class="field">
+            <label class="field-label">Joueur 1</label>
+            <input type="text" id="p1name" placeholder="Ex. Camille" maxlength="18">
+          </div>
+          <div class="field">
+            <label class="field-label">Joueur 2</label>
+            <input type="text" id="p2name" placeholder="Ex. Alex" maxlength="18">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnStart">Passer à la localisation →</button>
+      </div>
+    </section>
+
+    <!-- LOCATION -->
+    <section class="screen" id="screen-location">
+      <div class="card">
+        <div class="eyebrow">Étape 2</div>
+        <h1 class="page-title">D'où regardez-vous le ciel ?</h1>
+        <p class="lead">On s'en sert pour centrer le radar et retrouver les avions au-dessus de vous.</p>
+
+        <button class="btn btn-cyan" id="btnGeoloc">📍 Utiliser ma position actuelle</button>
+
+        <div class="divider-text">ou</div>
+
+        <div class="field">
+          <label class="field-label">Chercher une ville</label>
+          <input type="text" id="citySearch" placeholder="Ex. Lyon, Bruxelles, Dakar…">
+          <div id="cityResults" style="margin-top:8px;"></div>
+        </div>
+
+        <button class="link-btn" id="btnManualCoords" type="button">Saisir des coordonnées manuellement</button>
+        <div id="manualCoordsBox" style="display:none;margin-top:10px;">
+          <div class="row2">
+            <div class="field">
+              <label class="field-label">Latitude</label>
+              <input type="number" id="manLat" step="0.0001" placeholder="48.8566">
+            </div>
+            <div class="field">
+              <label class="field-label">Longitude</label>
+              <input type="number" id="manLon" step="0.0001" placeholder="2.3522">
+            </div>
+          </div>
+          <button class="btn btn-ghost" id="btnUseManual">Valider ces coordonnées</button>
+        </div>
+
+        <div id="locStatus" class="status-line" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- RADAR -->
+    <section class="screen" id="screen-radar">
+      <div class="card">
+        <div class="eyebrow" id="roundEyebrow">Manche 1</div>
+        <h1 class="page-title">Qui survole votre ciel ?</h1>
+        <div class="radius-control">
+          <label class="field-label">Rayon de recherche</label>
+          <div class="radius-options" id="radiusOptions">
+            <button type="button" class="radius-btn" data-km="25">25 km</button>
+            <button type="button" class="radius-btn" data-km="50">50 km</button>
+            <button type="button" class="radius-btn" data-km="100">100 km</button>
+            <button type="button" class="radius-btn" data-km="150">150 km</button>
+            <button type="button" class="radius-btn" data-km="250">250 km</button>
+            <button type="button" class="radius-btn" id="radiusCustomBtn" data-km="custom">Personnalisé</button>
+          </div>
+          <div class="radius-custom" id="radiusCustomBox" style="display:none;">
+            <input type="number" id="radiusCustomInput" min="5" max="400" step="5" placeholder="Ex. 80">
+            <span>km</span>
+            <button class="btn btn-ghost btn-sm" id="radiusCustomApply">Appliquer</button>
+          </div>
+        </div>
+
+        <div class="radar-wrap">
+          <div class="map-wrap">
+            <div id="leafletMap"></div>
+          </div>
+          <div class="radar-caption" id="radarCaption">Recherche des avions…</div>
+        </div>
+        <div class="status-line" id="fetchStatus"><span class="dot"></span><span>—</span></div>
+      </div>
+
+      <div id="planeListWrap">
+        <div class="plane-list" id="planeList"></div>
+      </div>
+
+      <div class="card manual-add">
+        <div class="eyebrow">Avion introuvable sur le radar ?</div>
+        <p class="lead" style="margin-bottom:12px;">Si vous connaissez son indicatif de vol (visible dans une app de suivi, ou peint sous certains avions), ajoutez-le à la main.</p>
+        <div class="field">
+          <input type="text" id="manualCallsign" placeholder="Ex. AFR1234 ou EZY52JM" style="text-transform:uppercase;">
+        </div>
+        <button class="btn btn-ghost" id="btnAddManual">Ajouter cet avion</button>
+      </div>
+
+      <button class="btn btn-ghost" id="btnRefreshRadar">↻ Rafraîchir le radar</button>
+    </section>
+
+    <!-- GUESS -->
+    <section class="screen" id="screen-guess">
+      <div class="card">
+        <div class="eyebrow">Manche en cours</div>
+        <h1 class="page-title">Faites vos pronostics</h1>
+        <div class="plane-chip">
+          <div>
+            <div class="callsign-big mono" id="guessCallsign">—</div>
+            <div class="sub" id="guessMeta">—</div>
+          </div>
+        </div>
+
+        <div id="guessForms"></div>
+
+        <button class="btn btn-primary" id="btnReveal" style="margin-top:6px;">Révéler le vol ✈</button>
+        <button class="link-btn" id="btnCancelGuess">← Choisir un autre avion</button>
+      </div>
+    </section>
+
+    <!-- REVEAL -->
+    <section class="screen" id="screen-reveal">
+      <div class="card">
+        <div class="eyebrow" id="revealCallsignTag">—</div>
+        <h1 class="page-title">Voici le vrai trajet</h1>
+
+        <div class="reveal-route" id="revealRoute"></div>
+
+        <div id="revealBody"></div>
+
+        <button class="btn btn-primary" id="btnNextRound" style="margin-top:18px;">Manche suivante →</button>
+      </div>
+
+      <div class="card" id="historyCard" style="display:none;">
+        <div class="eyebrow">Historique</div>
+        <div id="historyList"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="rules-toggle">
+  <button class="rules-fab" id="btnRules">?</button>
+</div>
+<div class="modal-backdrop" id="rulesModal">
+  <div class="modal">
+    <h3>Règles du jeu</h3>
+    <ul>
+      <li><b>Repérez</b> un avion dans le ciel, puis retrouvez-le sur la carte (positionné à ses coordonnées GPS réelles, avec un rayon de recherche réglable) ou ajoutez-le via son indicatif.</li>
+      <li>Chaque joueur devine en secret le <b>pays d'origine</b> et le <b>pays de destination</b> — et peut tenter la <b>ville</b> pour un bonus.</li>
+      <li>À la révélation : <b>10 pts</b> par pays trouvé (détecté automatiquement, corrigible à la main), <b>+5 pts</b> par ville juste (à valider ensemble), <b>+5 pts</b> bonus "vol complet" si les deux pays sont bons.</li>
+      <li>Les données viennent de réseaux ADS-B communautaires (adsb.lol) et d'une base de routes de vol (adsdb.com) — parfois un avion n'a pas de route connue (vol militaire, privé…) : passez au suivant.</li>
+      <li>Le score se garde dans ce navigateur d'une manche à l'autre.</li>
+    </ul>
+    <button class="btn btn-ghost" id="btnCloseRules">Fermer</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- country EN -> FR ---------------- */
+var COUNTRY_FR = {
+"France":"France","United States":"États-Unis","United States of America":"États-Unis","USA":"États-Unis",
+"United Kingdom":"Royaume-Uni","UK":"Royaume-Uni","Germany":"Allemagne","Spain":"Espagne","Italy":"Italie",
+"Netherlands":"Pays-Bas","Belgium":"Belgique","Switzerland":"Suisse","Portugal":"Portugal","Ireland":"Irlande",
+"Poland":"Pologne","Austria":"Autriche","Greece":"Grèce","Turkey":"Turquie","Türkiye":"Turquie","Morocco":"Maroc",
+"Algeria":"Algérie","Tunisia":"Tunisie","Egypt":"Égypte","United Arab Emirates":"Émirats arabes unis","Qatar":"Qatar",
+"Saudi Arabia":"Arabie saoudite","Israel":"Israël","Russia":"Russie","Russian Federation":"Russie","Ukraine":"Ukraine",
+"Sweden":"Suède","Norway":"Norvège","Denmark":"Danemark","Finland":"Finlande","Iceland":"Islande",
+"Czech Republic":"Tchéquie","Czechia":"Tchéquie","Slovakia":"Slovaquie","Hungary":"Hongrie","Romania":"Roumanie",
+"Bulgaria":"Bulgarie","Croatia":"Croatie","Serbia":"Serbie","Slovenia":"Slovénie",
+"Bosnia and Herzegovina":"Bosnie-Herzégovine","Albania":"Albanie","North Macedonia":"Macédoine du Nord",
+"Montenegro":"Monténégro","Moldova":"Moldavie","Belarus":"Biélorussie","Lithuania":"Lituanie","Latvia":"Lettonie",
+"Estonia":"Estonie","Luxembourg":"Luxembourg","Malta":"Malte","Cyprus":"Chypre","Canada":"Canada","Mexico":"Mexique",
+"Brazil":"Brésil","Argentina":"Argentine","Chile":"Chili","Colombia":"Colombie","Peru":"Pérou","Venezuela":"Venezuela",
+"Ecuador":"Équateur","Uruguay":"Uruguay","Paraguay":"Paraguay","Bolivia":"Bolivie","Cuba":"Cuba",
+"Dominican Republic":"République dominicaine","Jamaica":"Jamaïque","Panama":"Panama","Costa Rica":"Costa Rica",
+"China":"Chine","Japan":"Japon","South Korea":"Corée du Sud","Republic of Korea":"Corée du Sud",
+"North Korea":"Corée du Nord","India":"Inde","Pakistan":"Pakistan","Bangladesh":"Bangladesh","Sri Lanka":"Sri Lanka",
+"Nepal":"Népal","Thailand":"Thaïlande","Vietnam":"Vietnam","Viet Nam":"Vietnam","Cambodia":"Cambodge","Laos":"Laos",
+"Myanmar":"Myanmar","Malaysia":"Malaisie","Singapore":"Singapour","Indonesia":"Indonésie","Philippines":"Philippines",
+"Taiwan":"Taïwan","Hong Kong":"Hong Kong","Macau":"Macao","Mongolia":"Mongolie","Kazakhstan":"Kazakhstan",
+"Uzbekistan":"Ouzbékistan","Australia":"Australie","New Zealand":"Nouvelle-Zélande","Fiji":"Fidji",
+"South Africa":"Afrique du Sud","Nigeria":"Nigéria","Kenya":"Kenya","Ethiopia":"Éthiopie","Ghana":"Ghana",
+"Senegal":"Sénégal","Ivory Coast":"Côte d'Ivoire","Côte d'Ivoire":"Côte d'Ivoire","Cameroon":"Cameroun",
+"Tanzania":"Tanzanie","Uganda":"Ouganda","Angola":"Angola","Mozambique":"Mozambique","Zimbabwe":"Zimbabwe",
+"Zambia":"Zambie","Rwanda":"Rwanda","Mali":"Mali","Burkina Faso":"Burkina Faso","Niger":"Niger","Chad":"Tchad",
+"Libya":"Libye","Sudan":"Soudan","Jordan":"Jordanie","Lebanon":"Liban","Iraq":"Irak","Iran":"Iran","Kuwait":"Koweït",
+"Bahrain":"Bahreïn","Oman":"Oman","Yemen":"Yémen","Afghanistan":"Afghanistan","Georgia":"Géorgie",
+"Armenia":"Arménie","Azerbaijan":"Azerbaïdjan"
+};
+
+function normalize(s){
+  if(!s) return "";
+  return s.toString().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/^(le |la |les |l'|the )/,"").replace(/[^a-z0-9]/g,"").trim();
+}
+function frName(en){ return COUNTRY_FR[en] || en; }
+function countryMatches(guess, actualEn){
+  if(!guess) return false;
+  var g = normalize(guess);
+  if(!g) return false;
+  var fr = normalize(frName(actualEn));
+  var en = normalize(actualEn);
+  return g === fr || g === en;
+}
+function cityMatches(guess, actualCity){
+  if(!guess || !actualCity) return false;
+  var g = normalize(guess), c = normalize(actualCity);
+  if(!g) return false;
+  return g === c || (g.length>=3 && (c.indexOf(g)===0 || g.indexOf(c)===0));
+}
+
+/* ---------------- state ---------------- */
+var STORAGE_KEY = "radarDuelState_v1";
+var state = null;
+
+function freshState(){
+  return {
+    players:[{name:"Joueur 1", score:0},{name:"Joueur 2", score:0}],
+    round: 0,
+    loc: null, // {lat, lon, label}
+    planes: [],
+    selectedPlane: null,
+    guesses: {p1:{origin:"", dest:"", cityOrigin:"", cityDest:""}, p2:{origin:"", dest:"", cityOrigin:"", cityDest:""}},
+    revealData: null,
+    manualPointsUsed: {p1:{origin:false,dest:false}, p2:{origin:false,dest:false}},
+    history: [],
+    radiusKm: 100
+  };
+}
+function loadState(){
+  try{
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){ return JSON.parse(raw); }
+  }catch(e){}
+  return freshState();
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+state = loadState();
+if(!state.radiusKm){ state.radiusKm = 100; }
+
+/* ---------------- screen nav ---------------- */
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(function(el){ el.classList.remove("active"); });
+  document.getElementById(id).classList.add("active");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function renderScoreboard(){
+  var sb = document.getElementById("scoreboard");
+  if(state.round === 0 && state.history.length===0){ sb.style.display="none"; return; }
+  sb.style.display = "flex";
+  var lead = state.players[0].score === state.players[1].score ? -1 : (state.players[0].score > state.players[1].score ? 0 : 1);
+  sb.innerHTML = state.players.map(function(p,i){
+    return '<div class="score-card '+(i===lead?'leading':'')+'">'+
+      '<div class="name">'+escapeHtml(p.name)+(i===lead?' 👑':'')+'</div>'+
+      '<div class="pts">'+p.score+' <span>pts</span></div></div>';
+  }).join("");
+  document.getElementById("roundPill").textContent = "Manche " + state.round;
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* ---------------- setup ---------------- */
+document.getElementById("p1name").value = state.players[0].name==="Joueur 1" ? "" : state.players[0].name;
+document.getElementById("p2name").value = state.players[1].name==="Joueur 2" ? "" : state.players[1].name;
+
+document.getElementById("btnStart").addEventListener("click", function(){
+  var n1 = document.getElementById("p1name").value.trim() || "Joueur 1";
+  var n2 = document.getElementById("p2name").value.trim() || "Joueur 2";
+  state.players[0].name = n1;
+  state.players[1].name = n2;
+  saveState();
+  showScreen("screen-location");
+});
+
+/* ---------------- location ---------------- */
+function setLocStatus(msg, type){
+  var el = document.getElementById("locStatus");
+  el.style.display = "flex";
+  el.innerHTML = '<span class="dot '+(type||'')+'"></span><span>'+escapeHtml(msg)+'</span>';
+}
+
+document.getElementById("btnGeoloc").addEventListener("click", function(){
+  if(!navigator.geolocation){ setLocStatus("La géolocalisation n'est pas disponible sur cet appareil.", "err"); return; }
+  setLocStatus("Localisation en cours…", "");
+  navigator.geolocation.getCurrentPosition(function(pos){
+    state.loc = {lat: pos.coords.latitude, lon: pos.coords.longitude, label:"Votre position"};
+    saveState();
+    setLocStatus("Position trouvée ✓", "live");
+    setTimeout(startRadarScreen, 400);
+  }, function(err){
+    setLocStatus("Impossible d'obtenir la position (" + err.message + "). Essayez la recherche de ville.", "err");
+  }, {enableHighAccuracy:true, timeout:10000});
+});
+
+var cityTimer=null;
+document.getElementById("citySearch").addEventListener("input", function(e){
+  var q = e.target.value.trim();
+  clearTimeout(cityTimer);
+  var box = document.getElementById("cityResults");
+  if(q.length<2){ box.innerHTML=""; return; }
+  cityTimer = setTimeout(function(){
+    fetchWithFallback("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(q)+"&count=5&language=fr&format=json")
+      .then(function(data){
+        var results = data.results || [];
+        if(results.length===0){ box.innerHTML = '<div class="status-line"><span class="dot err"></span><span>Aucune ville trouvée</span></div>'; return; }
+        box.innerHTML = results.map(function(r,idx){
+          var label = [r.name, r.admin1, r.country].filter(Boolean).join(", ");
+          return '<button type="button" class="btn btn-ghost btn-sm" style="display:block;width:100%;text-align:left;margin-bottom:6px;" data-lat="'+r.latitude+'" data-lon="'+r.longitude+'" data-label="'+escapeHtml(label)+'">'+escapeHtml(label)+'</button>';
+        }).join("");
+        box.querySelectorAll("button").forEach(function(btn){
+          btn.addEventListener("click", function(){
+            state.loc = {lat: parseFloat(btn.dataset.lat), lon: parseFloat(btn.dataset.lon), label: btn.dataset.label};
+            saveState();
+            setLocStatus("Ville sélectionnée : " + btn.dataset.label, "live");
+            setTimeout(startRadarScreen, 300);
+          });
+        });
+      }).catch(function(){
+        box.innerHTML = '<div class="status-line"><span class="dot err"></span><span>Recherche indisponible pour le moment.</span></div>';
+      });
+  }, 400);
+});
+
+document.getElementById("btnManualCoords").addEventListener("click", function(){
+  var box = document.getElementById("manualCoordsBox");
+  box.style.display = box.style.display==="none" ? "block" : "none";
+});
+document.getElementById("btnUseManual").addEventListener("click", function(){
+  var lat = parseFloat(document.getElementById("manLat").value);
+  var lon = parseFloat(document.getElementById("manLon").value);
+  if(isNaN(lat) || isNaN(lon)){ setLocStatus("Merci d'indiquer une latitude et une longitude valides.", "err"); return; }
+  state.loc = {lat:lat, lon:lon, label:"Coordonnées manuelles"};
+  saveState();
+  setLocStatus("Coordonnées enregistrées ✓", "live");
+  setTimeout(startRadarScreen, 300);
+});
+
+/* ---------------- radar / fetch planes ---------------- */
+var NM_PER_KM = 0.539957;
+var RADIUS_NM = (state.radiusKm || 100) * NM_PER_KM;
+
+/* ---------------- leaflet map ---------------- */
+var leafletMap = null;
+var mapMarkersLayer = null;
+var mapRangeCircle = null;
+
+function ensureMap(){
+  if(leafletMap) return leafletMap;
+  leafletMap = L.map('leafletMap', {zoomControl:true, attributionControl:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19,
+    attribution:'&copy; OpenStreetMap'
+  }).addTo(leafletMap);
+  mapMarkersLayer = L.layerGroup().addTo(leafletMap);
+  leafletMap.setView([46.6, 2.5], 5); // default: centre France, avant localisation
+  return leafletMap;
+}
+
+function zoomForRadiusKm(km){
+  if(km<=15) return 11;
+  if(km<=30) return 10;
+  if(km<=60) return 9;
+  if(km<=100) return 8;
+  if(km<=150) return 7;
+  if(km<=250) return 6;
+  return 5;
+}
+
+function planeDivIcon(track){
+  var rot = (typeof track === "number") ? track : 0;
+  return L.divIcon({
+    className:"plane-marker",
+    html:'<div class="plane-marker-inner" style="transform:rotate('+rot+'deg)"><svg viewBox="0 0 24 24"><path d="M12 2 L18 20 L12 16 L6 20 Z"/></svg></div>',
+    iconSize:[26,26], iconAnchor:[13,13]
+  });
+}
+
+function renderMapMarkers(planes){
+  var map = ensureMap();
+  mapMarkersLayer.clearLayers();
+  if(!state.loc) return;
+
+  var userIcon = L.divIcon({className:"user-marker", iconSize:[14,14], iconAnchor:[7,7]});
+  L.marker([state.loc.lat, state.loc.lon], {icon:userIcon}).addTo(mapMarkersLayer);
+
+  var radiusKm = RADIUS_NM / NM_PER_KM;
+  mapRangeCircle = L.circle([state.loc.lat, state.loc.lon], {
+    radius: radiusKm*1000, color:"#5EEAD4", weight:1, fillColor:"#5EEAD4", fillOpacity:0.05
+  }).addTo(mapMarkersLayer);
+
+  (planes||[]).forEach(function(p){
+    if(typeof p.lat !== "number" || typeof p.lon !== "number") return;
+    var marker = L.marker([p.lat, p.lon], {icon: planeDivIcon(p.track)});
+    marker.bindTooltip(p.callsign, {direction:"top", offset:[0,-12]});
+    marker.on("click", function(){ selectPlane(p); });
+    marker.addTo(mapMarkersLayer);
+  });
+
+  map.setView([state.loc.lat, state.loc.lon], zoomForRadiusKm(radiusKm));
+}
+
+function setRadiusKm(km){
+  state.radiusKm = km;
+  RADIUS_NM = km * NM_PER_KM;
+  saveState();
+  updateRadiusButtonsUI();
+  if(state.loc){ fetchNearbyPlanes(); }
+}
+
+function updateRadiusButtonsUI(){
+  var km = state.radiusKm;
+  var presets = [25,50,100,150,250];
+  var isPreset = presets.indexOf(km) !== -1;
+  document.querySelectorAll(".radius-btn[data-km]").forEach(function(btn){
+    if(btn.id === "radiusCustomBtn"){
+      btn.classList.toggle("custom-active", !isPreset);
+      btn.textContent = isPreset ? "Personnalisé" : km+" km";
+    }else{
+      btn.classList.toggle("active", isPreset && parseInt(btn.dataset.km,10)===km);
+    }
+  });
+}
+
+document.getElementById("radiusOptions").addEventListener("click", function(e){
+  var btn = e.target.closest(".radius-btn");
+  if(!btn) return;
+  if(btn.id === "radiusCustomBtn"){
+    var box = document.getElementById("radiusCustomBox");
+    box.style.display = box.style.display==="none" ? "flex" : "none";
+    if(box.style.display==="flex"){ document.getElementById("radiusCustomInput").value = state.radiusKm; }
+    return;
+  }
+  setRadiusKm(parseInt(btn.dataset.km,10));
+});
+document.getElementById("radiusCustomApply").addEventListener("click", function(){
+  var v = parseInt(document.getElementById("radiusCustomInput").value,10);
+  if(isNaN(v) || v<5) return;
+  v = Math.min(v,400);
+  document.getElementById("radiusCustomBox").style.display="none";
+  setRadiusKm(v);
+});
+
+function toRad(d){ return d*Math.PI/180; }
+function bearingBetween(lat1,lon1,lat2,lon2){
+  var y = Math.sin(toRad(lon2-lon1))*Math.cos(toRad(lat2));
+  var x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
+  var brng = Math.atan2(y,x)*180/Math.PI;
+  return (brng+360)%360;
+}
+function distKm(lat1,lon1,lat2,lon2){
+  var R=6371;
+  var dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function compassLabel(deg){
+  var dirs=["N","NE","E","SE","S","SO","O","NO"];
+  return dirs[Math.round(deg/45)%8];
+}
+
+function startRadarScreen(){
+  state.round = state.round + 1;
+  saveState();
+  renderScoreboard();
+  document.getElementById("roundEyebrow").textContent = "Manche " + state.round;
+  showScreen("screen-radar");
+  fetchNearbyPlanes();
+}
+
+function setFetchStatus(msg, type){
+  var el = document.getElementById("fetchStatus");
+  el.innerHTML = '<span class="dot '+(type||'')+'"></span><span>'+escapeHtml(msg)+'</span>';
+}
+
+function parseDump1090Style(data, originLat, originLon){
+  var ac = data.ac || data.aircraft || [];
+  return ac.filter(function(a){
+    var cs = (a.flight||a.callsign||"").trim();
+    var alt = a.alt_baro!==undefined ? a.alt_baro : a.altitude;
+    return cs.length>0 && alt && alt !== "ground";
+  }).map(function(a){
+    var lat = a.lat, lon = a.lon;
+    var alt = a.alt_baro!==undefined ? a.alt_baro : a.altitude;
+    var dst = (typeof a.dst === "number") ? a.dst / NM_PER_KM : (lat&&lon ? distKm(originLat,originLon,lat,lon) : null);
+    var dir = (typeof a.dir === "number") ? a.dir : (lat&&lon ? bearingBetween(originLat,originLon,lat,lon) : null);
+    return {
+      callsign: (a.flight||a.callsign||"").trim(),
+      alt: alt,
+      track: (typeof a.track === "number") ? a.track : null,
+      speed: a.gs || a.speed || null,
+      distKm: dst,
+      bearing: dir,
+      lat: lat, lon: lon
+    };
+  }).filter(function(p){ return p.distKm !== null && p.bearing !== null; });
+}
+
+function parseOpenSkyStyle(data, originLat, originLon){
+  var rows = data.states || [];
+  return rows.filter(function(s){
+    var cs = (s[1]||"").trim();
+    return cs.length>0 && s[7] !== null && s[8] !== true; // baro_altitude present, not on_ground
+  }).map(function(s){
+    var lon = s[5], lat = s[6];
+    var dst = (lat!=null && lon!=null) ? distKm(originLat,originLon,lat,lon) : null;
+    var dir = (lat!=null && lon!=null) ? bearingBetween(originLat,originLon,lat,lon) : null;
+    return {
+      callsign: (s[1]||"").trim(),
+      alt: s[7],
+      track: (typeof s[10] === "number") ? s[10] : null,
+      speed: s[9] ? s[9]*1.94384 : null, // m/s -> kt
+      distKm: dst,
+      bearing: dir,
+      lat: lat, lon: lon
+    };
+  }).filter(function(p){ return p.distKm !== null && p.bearing !== null; });
+}
+
+function kmToDegLat(km){ return km/111; }
+function kmToDegLon(km, atLat){ return km/(111*Math.max(0.2,Math.cos(toRad(atLat)))); }
+
+function buildProviders(lat, lon){
+  var radiusKm = RADIUS_NM/NM_PER_KM;
+  var dLat = kmToDegLat(radiusKm), dLon = kmToDegLon(radiusKm, lat);
+  return [
+    {
+      name:"adsb.lol",
+      url:"https://api.adsb.lol/v2/point/"+lat+"/"+lon+"/"+RADIUS_NM,
+      parse:function(data){ return parseDump1090Style(data, lat, lon); }
+    },
+    {
+      name:"adsb.fi",
+      url:"https://opendata.adsb.fi/api/v2/lat/"+lat+"/lon/"+lon+"/dist/"+Math.round(radiusKm),
+      parse:function(data){ return parseDump1090Style(data, lat, lon); }
+    },
+    {
+      name:"OpenSky",
+      url:"https://opensky-network.org/api/states/all?lamin="+(lat-dLat)+"&lomin="+(lon-dLon)+"&lamax="+(lat+dLat)+"&lomax="+(lon+dLon),
+      parse:function(data){ return parseOpenSkyStyle(data, lat, lon); }
+    }
+  ];
+}
+
+function buildAttempts(lat, lon){
+  var providers = buildProviders(lat, lon);
+  var proxies = [
+    {name:"direct", wrap:function(u){ return u; }},
+    {name:"codetabs", wrap:function(u){ return "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u); }},
+    {name:"allorigins", wrap:function(u){ return "https://api.allorigins.win/raw?url="+encodeURIComponent(u); }}
+  ];
+  var attempts = [];
+  providers.forEach(function(p){
+    proxies.forEach(function(px){
+      attempts.push({
+        label: p.name + (px.name==="direct" ? "" : " (via "+px.name+")"),
+        url: px.wrap(p.url),
+        parse: p.parse
+      });
+    });
+  });
+  return attempts;
+}
+
+function tryProviders(attempts, idx, triedNames){
+  if(idx >= attempts.length){
+    return Promise.reject(new Error("Toutes les sources ont échoué ("+triedNames.join(" | ")+")"));
+  }
+  var att = attempts[idx];
+  setFetchStatus("Interrogation de "+att.label+"…", "");
+  return fetch(att.url, {headers:{"Accept":"application/json"}}).then(function(r){
+    if(!r.ok) throw new Error(att.label+" HTTP "+r.status);
+    return r.json();
+  }).then(function(data){
+    return {planes: att.parse(data), source: att.label};
+  }).catch(function(err){
+    triedNames.push(att.label+": "+err.message);
+    return tryProviders(attempts, idx+1, triedNames);
+  });
+}
+
+function fetchNearbyPlanes(){
+  if(!state.loc){ showScreen("screen-location"); return; }
+  document.getElementById("radarCaption").textContent = "Recherche des avions…";
+  document.getElementById("planeList").innerHTML = "";
+  updateRadiusButtonsUI();
+  renderMapMarkers([]);
+
+  var attempts = buildAttempts(state.loc.lat, state.loc.lon);
+  tryProviders(attempts, 0, []).then(function(result){
+    var planes = result.planes
+      .sort(function(a,b){ return a.distKm - b.distKm; })
+      .slice(0,30);
+
+    state.planes = planes;
+    saveState();
+    if(planes.length===0){
+      setFetchStatus("Aucun avion détecté dans un rayon de "+Math.round(RADIUS_NM/NM_PER_KM)+" km ("+result.source+").", "err");
+      document.getElementById("radarCaption").textContent = "Ciel calme — élargissez le rayon ou ajoutez un avion à la main";
+    }else{
+      setFetchStatus(planes.length+" avion(s) détecté(s) via "+result.source+" — touchez un point sur la carte.", "live");
+      document.getElementById("radarCaption").textContent = "Rayon affiché : "+Math.round(RADIUS_NM/NM_PER_KM)+" km";
+    }
+    renderMapMarkers(planes);
+    renderPlaneList(planes);
+  }).catch(function(err){
+    setFetchStatus("Radar indisponible pour l'instant. Détail : "+err.message+". Ajoutez un avion à la main ci-dessous.", "err");
+    document.getElementById("radarCaption").textContent = "Radar hors ligne";
+  });
+}
+
+function headingArrowSvg(track){
+  var rot = (typeof track === "number") ? track : 0;
+  return '<svg viewBox="0 0 24 24" style="transform:rotate('+rot+'deg)"><path d="M12 2 L18 20 L12 16 L6 20 Z"/></svg>';
+}
+
+function renderPlaneList(planes){
+  var wrap = document.getElementById("planeList");
+  if(planes.length===0){ wrap.innerHTML=""; return; }
+  wrap.innerHTML = planes.map(function(p, idx){
+    var alt = (typeof p.alt === "number") ? Math.round(p.alt).toLocaleString("fr-FR")+" ft" : "—";
+    var spd = p.speed ? Math.round(p.speed)+" kt" : "—";
+    var dir = compassLabel(p.bearing);
+    var d = p.distKm.toFixed(1);
+    return '<div class="plane-card" data-idx="'+idx+'">'+
+      '<div class="heading-badge">'+headingArrowSvg(p.track)+'</div>'+
+      '<div class="info">'+
+        '<div class="callsign">'+escapeHtml(p.callsign)+'</div>'+
+        '<div class="meta">'+d+' km · '+dir+' · '+alt+' · '+spd+'</div>'+
+      '</div>'+
+      '<button class="pick">Choisir</button>'+
+    '</div>';
+  }).join("");
+  wrap.querySelectorAll(".plane-card").forEach(function(el){
+    el.querySelector(".pick").addEventListener("click", function(){
+      selectPlane(planes[parseInt(el.dataset.idx,10)]);
+    });
+  });
+}
+
+document.getElementById("btnRefreshRadar").addEventListener("click", fetchNearbyPlanes);
+
+document.getElementById("btnAddManual").addEventListener("click", function(){
+  var cs = document.getElementById("manualCallsign").value.trim().toUpperCase();
+  if(!cs){ return; }
+  selectPlane({callsign:cs, alt:null, track:null, speed:null, distKm:null, bearing:null});
+});
+
+/* ---------------- selection & guess ---------------- */
+function selectPlane(plane){
+  state.selectedPlane = plane;
+  state.guesses = {p1:{origin:"", dest:"", cityOrigin:"", cityDest:""}, p2:{origin:"", dest:"", cityOrigin:"", cityDest:""}};
+  state.manualPointsUsed = {p1:{origin:false,dest:false}, p2:{origin:false,dest:false}};
+  saveState();
+  renderGuessScreen();
+  showScreen("screen-guess");
+}
+
+function renderGuessScreen(){
+  var p = state.selectedPlane;
+  document.getElementById("guessCallsign").textContent = p.callsign;
+  var metaParts = [];
+  if(p.distKm!==null && p.distKm!==undefined) metaParts.push(p.distKm.toFixed(1)+" km");
+  if(p.bearing!==null && p.bearing!==undefined) metaParts.push(compassLabel(p.bearing));
+  if(typeof p.alt === "number") metaParts.push(Math.round(p.alt).toLocaleString("fr-FR")+" ft");
+  document.getElementById("guessMeta").textContent = metaParts.length ? metaParts.join(" · ") : "Avion ajouté manuellement";
+
+  var forms = document.getElementById("guessForms");
+  forms.innerHTML = state.players.map(function(pl, i){
+    var key = "p"+(i+1);
+    return '<div class="guess-block">'+
+      '<div class="player-name"><span class="player-badge">'+(i+1)+'</span>'+escapeHtml(pl.name)+'</div>'+
+      '<div class="row2">'+
+        '<div class="field"><label class="field-label">Pays d\'origine</label><input type="text" id="'+key+'-origin" placeholder="Ex. Portugal"></div>'+
+        '<div class="field"><label class="field-label">Pays de destination</label><input type="text" id="'+key+'-dest" placeholder="Ex. Sénégal"></div>'+
+      '</div>'+
+      '<div class="row2">'+
+        '<div class="field"><label class="field-label">Ville d\'origine (bonus)</label><input type="text" id="'+key+'-cityOrigin" placeholder="Optionnel"></div>'+
+        '<div class="field"><label class="field-label">Ville de destination (bonus)</label><input type="text" id="'+key+'-cityDest" placeholder="Optionnel"></div>'+
+      '</div>'+
+    '</div>';
+  }).join("");
+}
+
+document.getElementById("btnCancelGuess").addEventListener("click", function(){
+  showScreen("screen-radar");
+});
+
+document.getElementById("btnReveal").addEventListener("click", function(){
+  ["p1","p2"].forEach(function(key){
+    state.guesses[key].origin = document.getElementById(key+"-origin").value.trim();
+    state.guesses[key].dest = document.getElementById(key+"-dest").value.trim();
+    state.guesses[key].cityOrigin = document.getElementById(key+"-cityOrigin").value.trim();
+    state.guesses[key].cityDest = document.getElementById(key+"-cityDest").value.trim();
+  });
+  saveState();
+  revealRound();
+});
+
+/* ---------------- reveal ---------------- */
+function fetchWithFallback(url){
+  var proxies = [
+    function(u){ return u; },
+    function(u){ return "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u); },
+    function(u){ return "https://api.allorigins.win/raw?url="+encodeURIComponent(u); }
+  ];
+  function attempt(i){
+    if(i>=proxies.length) return Promise.reject(new Error("no-route"));
+    return fetch(proxies[i](url), {headers:{"Accept":"application/json"}}).then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    }).catch(function(){ return attempt(i+1); });
+  }
+  return attempt(0);
+}
+
+function revealRound(){
+  var cs = state.selectedPlane.callsign;
+  document.getElementById("revealCallsignTag").textContent = cs;
+  document.getElementById("revealRoute").innerHTML = '<div class="status-line"><span class="dot"></span><span>Recherche de la route de vol…</span></div>';
+  document.getElementById("revealBody").innerHTML = "";
+  showScreen("screen-reveal");
+
+  fetchWithFallback("https://api.adsbdb.com/v0/callsign/"+encodeURIComponent(cs))
+    .then(function(data){
+      var fr = data.response && data.response.flightroute;
+      if(!fr){ throw new Error("no-route"); }
+      state.revealData = fr;
+      saveState();
+      renderReveal(fr);
+    })
+    .catch(function(){
+      document.getElementById("revealRoute").innerHTML =
+        '<div class="empty-note">Route inconnue pour <b class="mono">'+escapeHtml(cs)+'</b> (vol privé, militaire, ou non référencé).<br>Passez à la manche suivante !</div>';
+      document.getElementById("revealBody").innerHTML = "";
+    });
+}
+
+function airportBlock(label, ap){
+  if(!ap){ return '<div class="airport-block"><div class="lbl">'+label+'</div><div class="city">Inconnu</div></div>'; }
+  var country = frName(ap.country_name);
+  return '<div class="airport-block">'+
+    '<div class="lbl">'+label+'</div>'+
+    '<div class="city">'+escapeHtml(ap.municipality||ap.name||"?")+'</div>'+
+    '<div class="country">'+escapeHtml(country||"")+'</div>'+
+    '<div class="iata">'+escapeHtml(ap.iata_code||ap.icao_code||"")+'</div>'+
+  '</div>';
+}
+
+function renderReveal(fr){
+  var origin = fr.origin, dest = fr.destination;
+  document.getElementById("revealRoute").innerHTML =
+    airportBlock("Origine", origin) + '<div class="route-arrow">→</div>' + airportBlock("Destination", dest);
+
+  var body = document.getElementById("revealBody");
+  var html = "";
+
+  state.players.forEach(function(pl, i){
+    var key = "p"+(i+1);
+    var g = state.guesses[key];
+    var originOk = origin ? countryMatches(g.origin, origin.country_name) : false;
+    var destOk = dest ? countryMatches(g.dest, dest.country_name) : false;
+    var cityOriginOk = origin ? cityMatches(g.cityOrigin, origin.municipality) : false;
+    var cityDestOk = dest ? cityMatches(g.cityDest, dest.municipality) : false;
+
+    html += '<div class="guess-block">';
+    html += '<div class="player-name"><span class="player-badge">'+(i+1)+'</span>'+escapeHtml(pl.name)+'</div>';
+    html += '<div class="compare-row"><span class="g-label">Origine devinée</span><span class="g-val">'+escapeHtml(g.origin||"—")+'</span></div>';
+    html += '<div class="compare-row"><span class="g-label">Destination devinée</span><span class="g-val">'+escapeHtml(g.dest||"—")+'</span></div>';
+
+    html += '<div class="point-toggles">';
+    html += '<button class="toggle-btn '+(originOk?'on':'')+'" data-key="'+key+'" data-kind="origin">'+(originOk?'✓ ':'')+'Pays origine 10 pts</button>';
+    html += '<button class="toggle-btn '+(destOk?'on':'')+'" data-key="'+key+'" data-kind="dest">'+(destOk?'✓ ':'')+'Pays destination 10 pts</button>';
+    if(g.cityOrigin) html += '<button class="toggle-btn city-toggle '+(cityOriginOk?'on':'')+'" data-key="'+key+'" data-kind="cityOrigin">'+(cityOriginOk?'✓ ':'')+'Ville origine +5</button>';
+    if(g.cityDest) html += '<button class="toggle-btn city-toggle '+(cityDestOk?'on':'')+'" data-key="'+key+'" data-kind="cityDest">'+(cityDestOk?'✓ ':'')+'Ville destination +5</button>';
+    html += '</div>';
+    html += '<div class="round-points" id="roundpts-'+key+'" style="margin-top:10px;">— pts</div>';
+    html += '</div>';
+  });
+
+  body.innerHTML = html;
+
+  // wire toggles
+  body.querySelectorAll(".toggle-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      btn.classList.toggle("on");
+      var onNow = btn.classList.contains("on");
+      var checkmark = onNow ? "✓ " : "";
+      btn.textContent = checkmark + btn.textContent.replace(/^✓ /,"");
+      recomputeRoundPoints();
+    });
+  });
+
+  recomputeRoundPoints();
+  applyScoresOnce(fr);
+}
+
+var scoresAppliedForRound = false;
+function recomputeRoundPoints(){
+  ["p1","p2"].forEach(function(key){
+    var total = 0;
+    document.querySelectorAll('.toggle-btn[data-key="'+key+'"]').forEach(function(btn){
+      if(btn.classList.contains("on")){
+        var kind = btn.dataset.kind;
+        total += (kind==="origin"||kind==="dest") ? 10 : 5;
+      }
+    });
+    var originOn = document.querySelector('.toggle-btn[data-key="'+key+'"][data-kind="origin"]').classList.contains("on");
+    var destOn = document.querySelector('.toggle-btn[data-key="'+key+'"][data-kind="dest"]').classList.contains("on");
+    if(originOn && destOn) total += 5;
+    var el = document.getElementById("roundpts-"+key);
+    if(el) el.textContent = total + " pts";
+    state["_liveRoundPts_"+key] = total;
+  });
+}
+
+function applyScoresOnce(fr){
+  // reset previous application flag per round via selectedPlane identity
+  scoresAppliedForRound = false;
+}
+
+document.getElementById("btnNextRound").addEventListener("click", function(){
+  // finalize points into player scores
+  var p1pts = state["_liveRoundPts_p1"] || 0;
+  var p2pts = state["_liveRoundPts_p2"] || 0;
+  state.players[0].score += p1pts;
+  state.players[1].score += p2pts;
+  state.history.unshift({
+    round: state.round,
+    callsign: state.selectedPlane.callsign,
+    p1pts: p1pts, p2pts: p2pts,
+    route: state.revealData ? (
+      (state.revealData.origin ? state.revealData.origin.iata_code||state.revealData.origin.icao_code : "?") + " → " +
+      (state.revealData.destination ? state.revealData.destination.iata_code||state.revealData.destination.icao_code : "?")
+    ) : "route inconnue"
+  });
+  state.selectedPlane = null;
+  state.revealData = null;
+  state["_liveRoundPts_p1"] = 0;
+  state["_liveRoundPts_p2"] = 0;
+  saveState();
+  renderScoreboard();
+  startRadarScreen();
+});
+
+/* history rendering on reveal screen */
+var origShowScreen = showScreen;
+showScreen = function(id){
+  origShowScreen(id);
+  if(id === "screen-radar"){
+    setTimeout(function(){
+      if(leafletMap){ leafletMap.invalidateSize(); }
+    }, 150);
+  }
+  if(id === "screen-reveal" && state.history.length>0){
+    var card = document.getElementById("historyCard");
+    card.style.display = "block";
+    document.getElementById("historyList").innerHTML = state.history.slice(0,6).map(function(h){
+      return '<div class="history-item"><span>Manche '+h.round+' · '+escapeHtml(h.callsign)+' ('+escapeHtml(h.route)+')</span><span class="mono">'+h.p1pts+' / '+h.p2pts+'</span></div>';
+    }).join("");
+  }
+};
+
+/* ---------------- rules modal ---------------- */
+document.getElementById("btnRules").addEventListener("click", function(){
+  document.getElementById("rulesModal").classList.add("active");
+});
+document.getElementById("btnCloseRules").addEventListener("click", function(){
+  document.getElementById("rulesModal").classList.remove("active");
+});
+document.getElementById("rulesModal").addEventListener("click", function(e){
+  if(e.target.id === "rulesModal") e.currentTarget.classList.remove("active");
+});
+
+/* ---------------- resume state on load ---------------- */
+(function resume(){
+  renderScoreboard();
+  updateRadiusButtonsUI();
+  if(state.loc && state.round>0){
+    document.getElementById("roundEyebrow").textContent = "Manche " + state.round;
+    showScreen("screen-radar");
+    fetchNearbyPlanes();
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
