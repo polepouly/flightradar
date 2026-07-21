@@ -1,474 +1,878 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Radar Duel • Solo</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <style>
-        :root {
-            --bg: #0A0E1A;
-            --bg-deep: #060811;
-            --panel: #121A2E;
-            --panel-2: #1A243D;
-            --line: #243155;
-            --amber: #F4A340;
-            --cyan: #5EEAD4;
-            --text: #EDEFF5;
-            --muted: #8B93A7;
-            --good: #4ADE80;
-            --bad: #F76E6E;
-            --radius: 16px;
-        }
-        * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-        body { background: radial-gradient(ellipse at 50% -15%, #101a33 0%, var(--bg) 60%, var(--bg-deep) 100%); color: var(--text); min-height: 100vh; }
-        h1, h2 { font-family: 'Space Grotesk', sans-serif; }
-        .mono { font-family: 'JetBrains Mono', monospace; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Radar Duel • Solo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0A0E1A; --bg-deep:#060811; --panel:#121A2E; --panel-2:#1A243D;
+  --line:#243155; --amber:#F4A340; --cyan:#5EEAD4; --text:#EDEFF5; --muted:#8B93A7;
+  --good:#4ADE80; --bad:#F76E6E; --radius:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{background:radial-gradient(ellipse at 50% -15%, #101a33 0%, var(--bg) 60%, var(--bg-deep) 100%);color:var(--text);min-height:100vh}
+h1,h2{font-family:'Space Grotesk',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
 
-        .app { max-width: 620px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
-        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; position: sticky; top: 0; z-index: 100; background: rgba(10, 14, 26, 0.96); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-        .brand { display: flex; align-items: center; gap: 9px; }
-        .brand-mark { width: 30px; height: 30px; border: 2px solid var(--cyan); border-radius: 50%; position: relative; }
-        .brand-mark::after { content: ""; position: absolute; left: 50%; top: 4px; width: 2px; height: 11px; background: var(--cyan); transform: translateX(-50%); animation: sweep 3.5s linear infinite; }
-        @keyframes sweep { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
-        .brand-text .t1 { font-size: 17px; font-weight: 700; letter-spacing: .02em; }
-        .brand-text .t2 { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.app{max-width:620px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;position:sticky;top:0;z-index:100;
+  background:rgba(10,14,26,0.96);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:9px}
+.brand-mark{width:30px;height:30px;border:2px solid var(--cyan);border-radius:50%;position:relative}
+.brand-mark::after{content:"";position:absolute;left:50%;top:4px;width:2px;height:11px;background:var(--cyan);transform:translateX(-50%);animation:sweep 3.5s linear infinite}
+@keyframes sweep{from{transform:translateX(-50%) rotate(0deg)}to{transform:translateX(-50%) rotate(360deg)}}
+.brand-text .t1{font-size:17px;font-weight:700;letter-spacing:.02em}
+.brand-text .t2{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 
-        .score-pill { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; display: flex; align-items: center; gap: 7px; font-size: 13px; }
-        .score-pill .val { font-weight: 700; font-size: 19px; color: var(--amber); font-family: 'Space Grotesk', sans-serif; }
+.score-pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 14px;display:flex;align-items:center;gap:7px;font-size:13px}
+.score-pill .val{font-weight:700;font-size:19px;color:var(--amber);font-family:'Space Grotesk',sans-serif}
 
-        main { flex: 1; padding: 0 16px 30px; }
+main{flex:1;padding:0 16px 30px}
 
-        .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
-        .eyebrow { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--cyan); font-weight: 600; margin-bottom: 2px; }
-        .page-title { font-size: 22px; font-weight: 700; margin: 0 0 6px; line-height: 1.15; }
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);font-weight:600;margin-bottom:2px}
+.page-title{font-size:22px;font-weight:700;margin:0 0 6px;line-height:1.15}
 
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 13px 18px; border-radius: 12px; border: none; font-weight: 600; font-size: 14.5px; width: 100%; transition: .1s; }
-        .btn:active { transform: scale(0.985); }
-        .btn-primary { background: var(--amber); color: #1a1200; }
-        .btn-cyan { background: var(--cyan); color: #04211c; }
-        .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
-        .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
-        .btn-sm { padding: 8px 13px; font-size: 13px; width: auto; }
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:13px 18px;border-radius:12px;border:none;font-weight:600;font-size:14.5px;width:100%;transition:.1s}
+.btn:active{transform:scale(0.985)}
+.btn-primary{background:var(--amber);color:#1a1200}
+.btn-cyan{background:var(--cyan);color:#04211c}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn-sm{padding:8px 13px;font-size:13px;width:auto}
 
-        .status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); margin: 6px 0; }
-        .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
-        .dot.live { background: var(--good); box-shadow: 0 0 5px var(--good); }
-        .dot.err { background: var(--bad); }
+.status{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);margin:6px 0}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex:none}
+.dot.live{background:var(--good);box-shadow:0 0 5px var(--good)}
+.dot.err{background:var(--bad)}
 
-        #map { height: 400px; width: 100%; border-radius: var(--radius); margin: 8px auto 6px; }
+.radar-wrap{position:relative;margin:8px auto 6px;max-width:300px;width:100%}
+.radar{
+  width:100%;aspect-ratio:1/1;border-radius:50%;position:relative;
+  background:radial-gradient(circle,#0d1830 0%,#081020 68%,#060b18 100%);
+  border:1px solid var(--line);box-shadow:inset 0 0 35px rgba(0,0,0,0.65);
+  overflow:hidden;
+}
+.radar .ring{position:absolute;border:1px solid rgba(94,234,212,0.13);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%)}
+.radar .ring1{width:30%;height:30%}
+.radar .ring2{width:58%;height:58%}
+.radar .ring3{width:100%;height:100%}
+.radar .crosshair{position:absolute;background:rgba(94,234,212,0.08)}
+.radar .crosshair-v{width:1px;top:0;bottom:0;left:50%}
+.radar .crosshair-h{height:1px;left:0;right:0;top:50%}
+.radar .compass{position:absolute;font-size:9.5px;color:#64748b;font-weight:700;font-family:'JetBrains Mono',monospace}
+.radar .compass.n{top:5px;left:50%;transform:translateX(-50%)}
+.radar .compass.s{bottom:5px;left:50%;transform:translateX(-50%)}
+.radar .compass.e{right:6px;top:50%;transform:translateY(-50%)}
+.radar .compass.w{left:6px;top:50%;transform:translateY(-50%)}
+.radar .sweep{position:absolute;top:50%;left:50%;width:50%;height:1.5px;background:linear-gradient(to right,rgba(94,234,212,0.7),transparent);transform-origin:left center;animation:radarspin 4.1s linear infinite}
+@keyframes radarspin{from{transform:translate(0,-50%)rotate(0deg)}to{transform:translate(0,-50%)rotate(360deg)}}
 
-        .plane-list { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
-        .plane-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; display: flex; align-items: center; gap: 11px; cursor: pointer; }
-        .plane-card:active { background: #1f2a44; }
-        .plane-card .dir-badge { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--cyan-dim); flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--cyan); font-weight: 700; }
-        .plane-card .info { flex: 1; min-width: 0; }
-        .plane-card .callsign { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; letter-spacing: .02em; }
-        .plane-card .meta { font-size: 12.5px; color: var(--muted); margin-top: 1px; line-height: 1.25; }
-        .plane-card .alt { font-weight: 600; color: #a5b4fc; }
+.radar .you{position:absolute;top:50%;left:50%;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:var(--amber);box-shadow:0 0 9px 3px rgba(244,163,64,0.75);z-index:10}
 
-        .empty-note { text-align: center; padding: 22px 12px; color: var(--muted); font-size: 13px; }
+.blip{position:absolute;width:13px;height:13px;margin:-6.5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px 2px rgba(94,234,212,0.65);cursor:pointer;z-index:20;transition:transform .08s}
+.blip:active{transform:scale(1.4)}
+.blip.low{background:#4ade80;box-shadow:0 0 8px 2px rgba(74,222,128,0.65)}
+.blip.med{background:#f4a340;box-shadow:0 0 8px 2px rgba(244,163,64,0.65)}
+.blip.high{background:#60a5fa;box-shadow:0 0 8px 2px rgba(96,165,250,0.65)}
 
-        .guess-chip { background: var(--panel-2); border: 1px solid var(--cyan-dim); border-radius: 13px; padding: 13px 15px; margin-bottom: 14px; }
-        .guess-chip .cs { font-family: 'JetBrains Mono', monospace; font-size: 21px; font-weight: 700; color: var(--cyan); }
-        .guess-chip .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.radar-caption{font-size:11px;text-align:center;color:var(--muted);margin-top:7px;font-family:'JetBrains Mono',monospace}
 
-        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-        .input-grid .full { grid-column: 1/-1; }
-        .field { margin-bottom: 10px; }
-        label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
-        input { width: 100%; background: var(--bg-deep); border: 1px solid var(--line); color: var(--text); padding: 11px 13px; border-radius: 9px; font-size: 15px; outline: none; }
-        input:focus { border-color: var(--cyan); }
+.filters{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0 4px}
+.filter-btn{
+  font-size:11.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--muted);font-weight:500;
+}
+.filter-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(94,234,212,0.08)}
 
-        .reveal-route { display: flex; gap: 8px; margin-bottom: 16px; }
-        .airport { flex: 1; background: #182241; border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; }
-        .airport .lbl { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-        .airport .city { font-size: 15.5px; font-weight: 700; line-height: 1.15; margin-top: 1px; }
-        .airport .country { font-size: 12px; color: var(--muted); }
+.plane-list{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.plane-card{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+  display:flex;align-items:center;gap:11px;cursor:pointer;
+}
+.plane-card:active{background:#1f2a44}
+.plane-card .dir-badge{
+  width:30px;height:30px;border-radius:50%;border:1px solid var(--cyan-dim);flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--cyan);font-weight:700;
+}
+.plane-card .info{flex:1;min-width:0}
+.plane-card .callsign{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;letter-spacing:.02em}
+.plane-card .meta{font-size:12.5px;color:var(--muted);margin-top:1px;line-height:1.25}
+.plane-card .alt{font-weight:600;color:#a5b4fc}
 
-        .points-bar { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 14px; }
-        .points-bar .score { font-size: 25px; font-weight: 700; color: var(--amber); font-family: 'Space Grotesk', sans-serif; }
+.guess-chip{
+  background:var(--panel-2);border:1px solid var(--cyan-dim);border-radius:13px;padding:13px 15px;margin-bottom:14px;
+}
+.guess-chip .cs{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--cyan)}
+.guess-chip .meta{font-size:12.5px;color:var(--muted);margin-top:2px}
 
-        .toggle-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-        .toggle { font-size: 12.5px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); }
-        .toggle.on { background: rgba(74, 222, 128, 0.1); border-color: var(--good); color: var(--good); }
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.input-grid .full{grid-column:1/-1}
+.field{margin-bottom:10px}
+label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
+input{
+  width:100%;background:var(--bg-deep);border:1px solid var(--line);color:var(--text);
+  padding:11px 13px;border-radius:9px;font-size:15px;outline:none
+}
+input:focus{border-color:var(--cyan)}
 
-        .history-item { font-size: 12.5px; color: var(--muted); padding: 5px 0; border-bottom: 1px dashed var(--line); display: flex; justify-content: space-between; }
-        .history-item:last-child { border-bottom: none; }
+.reveal-route{display:flex;gap:8px;margin-bottom:16px}
+.airport{flex:1;background:#182241;border:1px solid var(--line);border-radius:11px;padding:10px 12px}
+.airport .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.airport .city{font-size:15.5px;font-weight:700;line-height:1.15;margin-top:1px}
+.airport .country{font-size:12px;color:var(--muted)}
 
-        .disclaimer { background: #1f2a44; border: 1px solid #334155; border-radius: 10px; padding: 8px 12px; font-size: 11.5px; color: #94a3b8; margin-bottom: 12px; line-height: 1.35; }
-    </style>
+.points-bar{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--line);margin-top:14px}
+.points-bar .score{font-size:25px;font-weight:700;color:var(--amber);font-family:'Space Grotesk',sans-serif}
+
+.toggle-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.toggle{
+  font-size:12.5px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;
+  background:transparent;color:var(--muted)
+}
+.toggle.on{background:rgba(74,222,128,0.1);border-color:var(--good);color:var(--good)}
+
+.history-item{font-size:12.5px;color:var(--muted);padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between}
+.history-item:last-child{border-bottom:none}
+
+.empty-note{text-align:center;padding:22px 12px;color:var(--muted);font-size:13px}
+
+.debug{font-size:10px;color:#64748b;margin:6px 0;font-family:monospace;background:#0c111f;padding:5px 8px;border-radius:6px;display:none}
+
+.disclaimer{
+  background:#1f2a44;border:1px solid #334155;border-radius:10px;
+  padding:8px 12px;font-size:11.5px;color:#94a3b8;margin-bottom:12px;line-height:1.35;
+}
+
+@media (max-width:380px){.input-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-    <div class="app">
-        <div class="topbar">
-            <div class="brand">
-                <div class="brand-mark"></div>
-                <div class="brand-text">
-                    <div class="t1">Radar Duel</div>
-                    <div class="t2">SOLO • EN DIRECT</div>
-                </div>
-            </div>
-            <div class="score-pill">
-                <span>Score</span>
-                <span id="scoreVal" style="font-weight:700;color:#F4A340;font-size:18px">0</span>
-            </div>
-        </div>
-        <main>
-            <!-- LOCATION -->
-            <div id="screen-loc" class="screen">
-                <div class="card">
-                    <div class="eyebrow">ÉTAPE 1</div>
-                    <h1 class="page-title">Où es-tu ?</h1>
-                    <p style="color:#8B93A7;font-size:14px;margin:4px 0 16px">Le radar se centre sur ta position pour montrer les vrais avions qui volent au-dessus de toi.</p>
 
-                    <button class="btn btn-cyan" id="btnGeo" style="margin-bottom:10px">📍 Utiliser ma position (GPS)</button>
-
-                    <div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px">
-                        <div style="height:1px;background:var(--line);flex:1"></div>
-                        <span style="font-size:11px;color:#64748b">OU</span>
-                        <div style="height:1px;background:var(--line);flex:1"></div>
-                    </div>
-
-                    <div class="field">
-                        <label>Rechercher une ville</label>
-                        <input type="text" id="citySearch" placeholder="Lausanne, Genève, Lyon, Zurich...">
-                        <div id="cityResults" style="margin-top:6px"></div>
-                    </div>
-
-                    <button class="btn btn-ghost" id="btnCoords" style="margin-top:4px">Saisir latitude / longitude</button>
-
-                    <div id="coordsBox" style="display:none;margin-top:12px">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                            <div class="field">
-                                <label>Latitude</label>
-                                <input type="number" id="lat" step="0.0001" placeholder="46.5197">
-                            </div>
-                            <div class="field">
-                                <label>Longitude</label>
-                                <input type="number" id="lon" step="0.0001" placeholder="6.6323">
-                            </div>
-                        </div>
-                        <button class="btn btn-ghost" id="btnSaveCoords">Valider</button>
-                    </div>
-
-                    <div id="locMsg" class="status" style="display:none;margin-top:12px"></div>
-                </div>
-            </div>
-
-            <!-- RADAR -->
-            <div id="screen-radar" class="screen" style="display:none">
-                <div class="card">
-                    <div class="eyebrow">MANCHE <span id="round">1</span></div>
-                    <h1 class="page-title">Avions au-dessus de toi</h1>
-
-                    <div class="disclaimer">
-                        ⚠️ Données ADS-B ouvertes (adsb.lol / adsb.fi).
-                        Les positions et altitudes peuvent légèrement différer de Flightradar24 (délai, couverture différente).
-                    </div>
-
-                    <div id="map"></div>
-
-                    <div class="status" id="fetchStatus">
-                        <span class="dot"></span>
-                        <span id="fetchText">Chargement...</span>
-                    </div>
-
-                    <div class="plane-list" id="planeList"></div>
-                </div>
-
-                <div style="display:flex;gap:8px;margin-top:4px">
-                    <button class="btn btn-ghost" id="btnRefresh" style="flex:1">↻ Rafraîchir</button>
-                    <button class="btn btn-primary" id="btnRandom" style="flex:1">🎲 Choisir au hasard</button>
-                </div>
-
-                <div class="card" style="margin-top:12px">
-                    <div style="font-size:11.5px;color:#8B93A7;margin-bottom:6px">L’avion n’apparaît pas ? (rare)</div>
-                    <div style="display:flex;gap:6px">
-                        <input type="text" id="manualCs" placeholder="Indicatif (ex: SWR1234)" style="flex:1;text-transform:uppercase">
-                        <button class="btn btn-ghost" id="btnManual" style="width:90px">Ajouter</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- GUESS -->
-            <div id="screen-guess" class="screen" style="display:none">
-                <div class="card">
-                    <div class="eyebrow">MANCHE <span id="guessRound">1</span></div>
-                    <h1 class="page-title">Devine le vol</h1>
-
-                    <div class="guess-chip">
-                        <div class="cs" id="guessCs">—</div>
-                        <div class="meta" id="guessMeta">—</div>
-                    </div>
-
-                    <div class="input-grid">
-                        <div class="field">
-                            <label>Pays d’origine</label>
-                            <input id="gOrigin" type="text" placeholder="Suisse, France...">
-                        </div>
-                        <div class="field">
-                            <label>Pays de destination</label>
-                            <input id="gDest" type="text" placeholder="Italie, Espagne...">
-                        </div>
-                        <div class="field full">
-                            <label>Ville d’origine (bonus +5)</label>
-                            <input id="gCityO" type="text" placeholder="Optionnel">
-                        </div>
-                        <div class="field full">
-                            <label>Ville de destination (bonus +5)</label>
-                            <input id="gCityD" type="text" placeholder="Optionnel">
-                        </div>
-                    </div>
-
-                    <div style="margin-top:16px;display:flex;gap:9px">
-                        <button class="btn btn-ghost" id="btnBack" style="flex:1">← Retour</button>
-                        <button class="btn btn-primary" id="btnReveal" style="flex:1.5">Révéler ✈️</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- REVEAL -->
-            <div id="screen-reveal" class="screen" style="display:none">
-                <div class="card">
-                    <div class="eyebrow" id="revealTag"></div>
-                    <h1 class="page-title">Voici la vérité</h1>
-
-                    <div class="reveal-route" id="revealRoute"></div>
-
-                    <div id="revealContent"></div>
-
-                    <div class="points-bar">
-                        <div>
-                            <div style="font-size:11px;color:#8B93A7">Points cette manche</div>
-                            <div id="points" style="font-size:27px;font-weight:700;color:#F4A340">—</div>
-                        </div>
-                        <button class="btn btn-primary" id="btnNext" style="width:auto;padding:9px 20px">Manche suivante →</button>
-                    </div>
-                </div>
-
-                <div class="card" id="historyWrap" style="display:none;margin-top:4px">
-                    <div class="eyebrow">Derniers vols</div>
-                    <div id="historyList"></div>
-                </div>
-            </div>
-        </main>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <div class="t1">Radar Duel</div>
+        <div class="t2">SOLO • EN DIRECT</div>
+      </div>
     </div>
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script>
-        (function() {
-            "use strict";
+    <div class="score-pill">
+      <span>Score</span>
+      <span id="scoreVal" style="font-weight:700;color:#F4A340;font-size:18px">0</span>
+    </div>
+  </div>
 
-            const STORAGE = "radarDuelSolo_v7_fixed";
-            let state = { score: 0, round: 0, loc: null, planes: [], selected: null, history: [] };
+  <div class="score-bar" style="display:flex;align-items:center;gap:10px;padding:8px 18px 6px">
+    <button id="btnReset" class="btn btn-ghost btn-sm" style="padding:4px 11px;font-size:11.5px">Reset score</button>
+    <div style="flex:1"></div>
+    <button id="btnHelp" class="btn btn-ghost btn-sm" style="padding:4px 11px;font-size:11.5px">Aide</button>
+  </div>
 
-            function load() {
-                try { const s = localStorage.getItem(STORAGE); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
-            }
-            function save() { try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch (e) {} }
-            load();
+  <main>
+    <!-- LOCATION -->
+    <div id="screen-loc" class="screen">
+      <div class="card">
+        <div class="eyebrow">ÉTAPE 1</div>
+        <h1 class="page-title">Où es-tu ?</h1>
+        <p style="color:#8B93A7;font-size:14px;margin:4px 0 16px">Le radar se centre sur ta position pour montrer les vrais avions qui volent au-dessus de toi.</p>
 
-            function updateScore() {
-                document.getElementById('scoreVal').textContent = state.score;
-            }
-            updateScore();
+        <button class="btn btn-cyan" id="btnGeo" style="margin-bottom:10px">📍 Utiliser ma position (GPS)</button>
 
-            function showScreen(id) {
-                document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-                document.getElementById(id).style.display = 'block';
-                window.scrollTo(0, 0);
-            }
+        <div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px">
+          <div style="height:1px;background:var(--line);flex:1"></div>
+          <span style="font-size:11px;color:#64748b">OU</span>
+          <div style="height:1px;background:var(--line);flex:1"></div>
+        </div>
 
-            function escape(s) { return (s || "").replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+        <div class="field">
+          <label>Rechercher une ville</label>
+          <input type="text" id="citySearch" placeholder="Lausanne, Genève, Lyon, Zurich...">
+          <div id="cityResults" style="margin-top:6px"></div>
+        </div>
 
-            // Initialize the map
-            const map = L.map('map').setView([51.505, -0.09], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+        <button class="btn btn-ghost" id="btnCoords" style="margin-top:4px">Saisir latitude / longitude</button>
 
-            // Function to fetch planes and update the map
-            async function fetchPlanes() {
-                if (!state.loc) return;
+        <div id="coordsBox" style="display:none;margin-top:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field">
+              <label>Latitude</label>
+              <input type="number" id="lat" step="0.0001" placeholder="46.5197">
+            </div>
+            <div class="field">
+              <label>Longitude</label>
+              <input type="number" id="lon" step="0.0001" placeholder="6.6323">
+            </div>
+          </div>
+          <button class="btn btn-ghost" id="btnSaveCoords">Valider</button>
+        </div>
 
-                const { lat, lon } = state.loc;
-                map.setView([lat, lon], 13);
+        <div id="locMsg" class="status" style="display:none;margin-top:12px"></div>
+      </div>
+    </div>
 
-                document.getElementById('planeList').innerHTML = '';
-                setStatus("Recherche des avions...");
+    <!-- RADAR -->
+    <div id="screen-radar" class="screen" style="display:none">
+      <div class="card">
+        <div class="eyebrow">MANCHE <span id="round">1</span></div>
+        <h1 class="page-title">Avions au-dessus de toi</h1>
 
-                try {
-                    const data = await safeFetch(`https://api.adsb.lol/v2/point/${lat}/${lon}/55`);
-                    const planes = parseADSB(data, lat, lon)
-                        .filter(p => p.distKm && p.distKm < 100)
-                        .sort((a, b) => a.distKm - b.distKm)
-                        .slice(0, 20);
+        <div class="disclaimer">
+          ⚠️ Données ADS-B ouvertes (adsb.lol / adsb.fi). 
+          Les positions et altitudes peuvent légèrement différer de Flightradar24 (délai, couverture différente).
+        </div>
 
-                    state.planes = planes;
-                    save();
+        <div class="radar-wrap">
+          <div class="radar" id="radar">
+            <div class="ring ring1"></div>
+            <div class="ring ring2"></div>
+            <div class="ring ring3"></div>
+            <div class="crosshair crosshair-v"></div>
+            <div class="crosshair crosshair-h"></div>
+            <div class="compass n">N</div><div class="compass s">S</div>
+            <div class="compass e">E</div><div class="compass w">O</div>
+            <div class="sweep"></div>
+            <div class="you"></div>
+          </div>
+          <div class="radar-caption" id="radarCaption">Recherche des avions...</div>
+        </div>
 
-                    if (planes.length) {
-                        setStatus(`${planes.length} avions détectés`, true);
-                        renderMap(planes);
-                        renderList(planes);
-                    } else {
-                        setStatus("Aucun avion trouvé", false);
-                        document.getElementById('planeList').innerHTML = `<div class="empty-note">Aucun avion détecté dans la zone.</div>`;
-                    }
-                } catch (e) {
-                    setStatus("Erreur de chargement", false);
-                }
-            }
+        <div class="status" id="fetchStatus">
+          <span class="dot"></span>
+          <span id="fetchText">Chargement...</span>
+        </div>
+        <div id="debug" class="debug"></div>
 
-            function parseADSB(data, oLat, oLon) {
-                const ac = data.ac || data.aircraft || [];
-                return ac.map(a => {
-                    const cs = (a.flight || a.callsign || "").trim();
-                    const alt = a.alt_baro;
+        <!-- Filters -->
+        <div class="filters">
+          <button class="filter-btn active" data-filter="all">Tous</button>
+          <button class="filter-btn" data-filter="low">Bas (&lt;15k ft)</button>
+          <button class="filter-btn" data-filter="high">Haut (&gt;25k ft)</button>
+          <button class="filter-btn" data-filter="north">Nord</button>
+          <button class="filter-btn" data-filter="south">Sud</button>
+        </div>
+      </div>
 
-                    if (!cs || cs.length < 3 || alt === "ground" || (typeof alt === 'number' && alt < 6000)) return null;
+      <!-- Planes list -->
+      <div class="card" style="padding:10px 12px 14px">
+        <div style="font-size:12px;color:#8B93A7;margin:0 0 6px 4px">Clique sur l’avion qui correspond à celui que tu vois dans le ciel</div>
+        <div class="plane-list" id="planeList"></div>
+      </div>
 
-                    let dk = null;
-                    let br = null;
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-ghost" id="btnRefresh" style="flex:1">↻ Rafraîchir</button>
+        <button class="btn btn-primary" id="btnRandom" style="flex:1">🎲 Choisir au hasard</button>
+      </div>
 
-                    if (typeof a.lat === 'number' && typeof a.lon === 'number') {
-                        dk = distKm(oLat, oLon, a.lat, a.lon);
-                        br = bearing(oLat, oLon, a.lat, a.lon);
-                    } else if (typeof a.dst === 'number' && typeof a.dir === 'number') {
-                        dk = a.dst * 1.852;
-                        br = a.dir;
-                    }
+      <div class="card" style="margin-top:12px">
+        <div style="font-size:11.5px;color:#8B93A7;margin-bottom:6px">L’avion n’apparaît pas ? (rare)</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="manualCs" placeholder="Indicatif (ex: SWR1234)" style="flex:1;text-transform:uppercase">
+          <button class="btn btn-ghost" id="btnManual" style="width:90px">Ajouter</button>
+        </div>
+      </div>
+    </div>
 
-                    if (dk === null || br === null) return null;
+    <!-- GUESS -->
+    <div id="screen-guess" class="screen" style="display:none">
+      <div class="card">
+        <div class="eyebrow">MANCHE <span id="guessRound">1</span></div>
+        <h1 class="page-title">Devine le vol</h1>
 
-                    return {
-                        callsign: cs.replace(/\s+$/, ''),
-                        alt: alt,
-                        track: a.track || a.true_heading || null,
-                        speed: a.gs || null,
-                        distKm: dk,
-                        bearing: br,
-                        lat: a.lat,
-                        lon: a.lon
-                    };
-                }).filter(Boolean);
-            }
+        <div class="guess-chip">
+          <div class="cs" id="guessCs">—</div>
+          <div class="meta" id="guessMeta">—</div>
+        </div>
 
-            function distKm(la1, lo1, la2, lo2) {
-                const R = 6371, dLat = rad(la2 - la1), dLo = rad(lo2 - lo1);
-                const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.sin(dLo / 2) ** 2;
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            }
+        <div class="input-grid">
+          <div class="field">
+            <label>Pays d’origine</label>
+            <input id="gOrigin" type="text" placeholder="Suisse, France...">
+          </div>
+          <div class="field">
+            <label>Pays de destination</label>
+            <input id="gDest" type="text" placeholder="Italie, Espagne...">
+          </div>
+          <div class="field full">
+            <label>Ville d’origine (bonus +5)</label>
+            <input id="gCityO" type="text" placeholder="Optionnel">
+          </div>
+          <div class="field full">
+            <label>Ville de destination (bonus +5)</label>
+            <input id="gCityD" type="text" placeholder="Optionnel">
+          </div>
+        </div>
 
-            function rad(d) { return d * Math.PI / 180; }
+        <div style="margin-top:16px;display:flex;gap:9px">
+          <button class="btn btn-ghost" id="btnBack" style="flex:1">← Retour</button>
+          <button class="btn btn-primary" id="btnReveal" style="flex:1.5">Révéler ✈️</button>
+        </div>
+      </div>
+    </div>
 
-            function bearing(la1, lo1, la2, lo2) {
-                const y = Math.sin(rad(lo2 - lo1)) * Math.cos(rad(la2));
-                const x = Math.cos(rad(la1)) * Math.sin(rad(la2)) - Math.sin(rad(la1)) * Math.cos(rad(la2)) * Math.cos(rad(lo2 - lo1));
-                return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            }
+    <!-- REVEAL -->
+    <div id="screen-reveal" class="screen" style="display:none">
+      <div class="card">
+        <div class="eyebrow" id="revealTag"></div>
+        <h1 class="page-title">Voici la vérité</h1>
 
-            function dirLabel(b) { return ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][Math.round(b / 45) % 8]; }
+        <div class="reveal-route" id="revealRoute"></div>
 
-            function renderMap(planes) {
-                map.eachLayer(layer => {
-                    if (layer instanceof L.Marker) {
-                        map.removeLayer(layer);
-                    }
-                });
+        <div id="revealContent"></div>
 
-                planes.forEach(p => {
-                    if (p.lat && p.lon) {
-                        const marker = L.marker([p.lat, p.lon]).addTo(map);
-                        marker.bindPopup(`<b>${escape(p.callsign)}</b><br>Altitude: ${Math.round(p.alt)} ft<br>Distance: ${p.distKm.toFixed(1)} km`);
-                    }
-                });
-            }
+        <div class="points-bar">
+          <div>
+            <div style="font-size:11px;color:#8B93A7">Points cette manche</div>
+            <div id="points" style="font-size:27px;font-weight:700;color:#F4A340">—</div>
+          </div>
+          <button class="btn btn-primary" id="btnNext" style="width:auto;padding:9px 20px">Manche suivante →</button>
+        </div>
+      </div>
 
-            function renderList(planes) {
-                const wrap = document.getElementById('planeList');
-                if (!planes.length) {
-                    wrap.innerHTML = `<div class="empty-note">Aucun avion correspondant.</div>`;
-                    return;
-                }
+      <div class="card" id="historyWrap" style="display:none;margin-top:4px">
+        <div class="eyebrow">Derniers vols</div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+  </main>
+</div>
 
-                wrap.innerHTML = planes.map((p, i) => `
-                    <div class="plane-card" data-idx="${i}">
-                        <div class="dir-badge" style="transform:rotate(${p.track || p.bearing || 0}deg)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 L18 20 L12 16 L6 20 Z"/></svg>
-                        </div>
-                        <div class="info">
-                            <div class="callsign">${escape(p.callsign)}</div>
-                            <div class="meta">
-                                <span class="alt">${Math.round(p.alt).toLocaleString('fr')} ft</span> •
-                                ${p.distKm.toFixed(1)} km • ${dirLabel(p.bearing)}
-                                ${p.speed ? ' • ' + Math.round(p.speed) + ' kt' : ''}
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+<script>
+(function(){
+"use strict";
 
-                wrap.querySelectorAll('.plane-card').forEach(card => {
-                    card.onclick = () => {
-                        const idx = parseInt(card.dataset.idx);
-                        selectPlane(planes[idx]);
-                    };
-                });
-            }
+const STORAGE = "radarDuelSolo_v7_fixed";
+let state = { score:0, round:0, loc:null, planes:[], selected:null, history:[] };
 
-            function selectPlane(p) {
-                state.selected = p;
-                save();
+function load() {
+  try { const s = localStorage.getItem(STORAGE); if(s) state = Object.assign(state, JSON.parse(s)); } catch(e){}
+}
+function save() { try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){} }
+load();
 
-                document.getElementById('guessCs').textContent = p.callsign;
-                let meta = [];
-                if (p.distKm) meta.push(p.distKm.toFixed(1) + " km");
-                if (p.bearing) meta.push(dirLabel(p.bearing));
-                if (p.alt) meta.push(Math.round(p.alt) + " ft");
-                document.getElementById('guessMeta').textContent = meta.join(" • ") || "Avion ajouté manuellement";
+function updateScore() {
+  document.getElementById('scoreVal').textContent = state.score;
+}
+updateScore();
 
-                document.getElementById('guessRound').textContent = state.round;
-                ['gOrigin', 'gDest', 'gCityO', 'gCityD'].forEach(id => document.getElementById(id).value = '');
-                showScreen('screen-guess');
-            }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+  window.scrollTo(0,0);
+}
 
-            function setStatus(msg, live = true) {
-                const dot = document.querySelector('#fetchStatus .dot');
-                document.getElementById('fetchText').textContent = msg;
-                dot.className = 'dot ' + (live ? 'live' : 'err');
-            }
+function escape(s){return (s||"").replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-            async function safeFetch(url) {
-                const proxies = [
-                    u => u,
-                    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-                    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-                    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
-                ];
-                for (let i = 0; i < proxies.length; i++) {
-                    try {
-                        const r = await fetch(proxies[i](url), { headers: { Accept: 'application/json' } });
-                        if (r.ok) return await r.json();
-                    } catch (e) {}
-                }
-                throw new Error("Réseau indisponible");
-            }
+// ==================== LOCATION ====================
+function setLocMsg(msg, err=false){
+  const el = document.getElementById('locMsg');
+  el.style.display='flex';
+  el.innerHTML = `<span class="dot ${err?'err':'live'}"></span> <span>${escape(msg)}</span>`;
+}
 
-            // Initialize the app
-            function init() {
-                updateScore();
-                if (state.loc && state.round > 0) {
-                    document.getElementById('round').textContent = state.round;
-                    showScreen('screen-radar');
-                    fetchPlanes();
-                } else {
-                    showScreen('screen-loc');
-                }
-            }
+document.getElementById('btnGeo').onclick = () => {
+  if(!navigator.geolocation) return setLocMsg("Géolocalisation indisponible", true);
+  setLocMsg("Localisation en cours...");
+  navigator.geolocation.getCurrentPosition(p => {
+    state.loc = {lat:p.coords.latitude, lon:p.coords.longitude, label:"Ta position"};
+    save();
+    setLocMsg("Position trouvée ✓");
+    setTimeout(startRadar, 280);
+  }, e => setLocMsg("Erreur GPS : " + e.message, true), {enableHighAccuracy:true, timeout:11000});
+};
 
-            init();
-        })();
-    </script>
+let cityTmr;
+document.getElementById('citySearch').oninput = e => {
+  const q = e.target.value.trim();
+  clearTimeout(cityTmr);
+  const box = document.getElementById('cityResults');
+  if(q.length<2){box.innerHTML='';return;}
+  cityTmr = setTimeout(async ()=>{
+    try{
+      const res = await safeFetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=fr&format=json`);
+      const rs = res.results || [];
+      if(!rs.length){box.innerHTML='<div style="font-size:12px;color:#64748b">Aucun résultat</div>';return;}
+      box.innerHTML = rs.map(r => {
+        const lbl = [r.name,r.admin1,r.country].filter(Boolean).join(', ');
+        return `<button class="btn btn-ghost btn-sm" style="width:100%;margin:3px 0;text-align:left" data-lat="${r.latitude}" data-lon="${r.longitude}">${escape(lbl)}</button>`;
+      }).join('');
+      box.querySelectorAll('button').forEach(b => {
+        b.onclick = () => {
+          state.loc = {lat:parseFloat(b.dataset.lat), lon:parseFloat(b.dataset.lon), label:b.textContent};
+          save();
+          setLocMsg("Position : " + b.textContent);
+          setTimeout(startRadar, 250);
+        };
+      });
+    }catch(e){box.innerHTML='<div style="font-size:12px;color:#64748b">Recherche impossible</div>';}
+  },380);
+};
+
+document.getElementById('btnCoords').onclick = () => {
+  const box = document.getElementById('coordsBox');
+  box.style.display = box.style.display==='none'?'block':'none';
+};
+document.getElementById('btnSaveCoords').onclick = () => {
+  const la = parseFloat(document.getElementById('lat').value);
+  const lo = parseFloat(document.getElementById('lon').value);
+  if(isNaN(la)||isNaN(lo)) return setLocMsg("Coordonnées invalides",true);
+  state.loc = {lat:la,lon:lo,label:"Coordonnées manuelles"};
+  save();
+  setLocMsg("Position enregistrée");
+  setTimeout(startRadar,220);
+};
+
+// ==================== CORS SAFE FETCH ====================
+async function safeFetch(url){
+  const proxies = [
+    u => u,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+  ];
+  for(let i=0;i<proxies.length;i++){
+    try{
+      const r = await fetch(proxies[i](url),{headers:{Accept:'application/json'}});
+      if(r.ok) return await r.json();
+    }catch(e){}
+  }
+  throw new Error("Réseau indisponible");
+}
+
+// ==================== RADAR LOGIC - FIXED ACCURACY ====================
+const RADIUS_NM = 55;        // Reduced for better visual match
+const NM_KM = 1.852;
+const MIN_ALT = 6000;        // Only show planes reasonably high
+
+function rad(d){return d*Math.PI/180}
+
+function distKm(la1,lo1,la2,lo2){
+  const R=6371,dLat=rad(la2-la1),dLo=rad(lo2-lo1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(rad(la1))*Math.cos(rad(la2))*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function bearing(la1,lo1,la2,lo2){
+  const y=Math.sin(rad(lo2-lo1))*Math.cos(rad(la2));
+  const x=Math.cos(rad(la1))*Math.sin(rad(la2))-Math.sin(rad(la1))*Math.cos(rad(la2))*Math.cos(rad(lo2-lo1));
+  return (Math.atan2(y,x)*180/Math.PI + 360)%360;
+}
+
+function dirLabel(b){return ["N","NE","E","SE","S","SO","O","NO"][Math.round(b/45)%8]}
+
+function startRadar(){
+  if(!state.loc){showScreen('screen-loc');return;}
+  state.round++;
+  document.getElementById('round').textContent = state.round;
+  save();
+  showScreen('screen-radar');
+  fetchPlanes();
+}
+
+function setStatus(msg, live=true){
+  const dot = document.querySelector('#fetchStatus .dot');
+  document.getElementById('fetchText').textContent = msg;
+  dot.className = 'dot ' + (live ? 'live' : 'err');
+}
+function debug(msg){
+  const d = document.getElementById('debug');
+  d.style.display = 'block';
+  d.textContent = msg;
+}
+
+async function fetchPlanes(){
+  const {lat,lon} = state.loc;
+  document.getElementById('planeList').innerHTML = '';
+  clearBlips();
+  setStatus("Recherche des avions...");
+  debug("Chargement...");
+
+  const attempts = [
+    {name:"adsb.lol", url:`https://api.adsb.lol/v2/point/${lat}/${lon}/${RADIUS_NM}`, parse:parseADSB},
+    {name:"adsb.fi", url:`https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${Math.round(RADIUS_NM*NM_KM)}`, parse:parseADSB}
+  ];
+
+  for(let att of attempts){
+    try{
+      setStatus(`Essai ${att.name}...`);
+      const data = await safeFetch(att.url);
+      let planes = att.parse(data, lat, lon)
+        .filter(p => p.distKm && p.distKm < RADIUS_NM * NM_KM * 1.1)
+        .sort((a,b)=>a.distKm-b.distKm)
+        .slice(0,20);
+
+      state.planes = planes;
+      save();
+
+      if(planes.length){
+        setStatus(`${planes.length} avions détectés`, true);
+        debug(`✓ ${planes.length} avions via ${att.name} (filtré > ${MIN_ALT} ft)`);
+        renderRadar(planes);
+        renderList(planes);
+        return;
+      }
+    }catch(e){
+      debug(`Échec ${att.name}: ${e.message}`);
+    }
+  }
+  setStatus("Aucun avion trouvé", false);
+  document.getElementById('radarCaption').textContent = "Aucun avion dans la zone. Rafraîchis.";
+  document.getElementById('planeList').innerHTML = `<div class="empty-note">Aucun avion détecté dans un rayon de ~${Math.round(RADIUS_NM*NM_KM)} km.<br>Essaie de rafraîchir ou d'ajouter manuellement.</div>`;
+}
+
+function parseADSB(data, oLat, oLon){
+  const ac = data.ac || data.aircraft || [];
+  return ac.map(a => {
+    const cs = (a.flight||a.callsign||"").trim();
+    const alt = a.alt_baro;
+    
+    if(!cs || cs.length<3 || alt==="ground" || (typeof alt === 'number' && alt < MIN_ALT)) return null;
+
+    let dk = null;
+    let br = null;
+
+    // Always prefer calculating from real lat/lon for accuracy
+    if (typeof a.lat === 'number' && typeof a.lon === 'number') {
+      dk = distKm(oLat, oLon, a.lat, a.lon);
+      br = bearing(oLat, oLon, a.lat, a.lon);
+    } else if (typeof a.dst === 'number' && typeof a.dir === 'number') {
+      // Fallback to API-provided relative values
+      dk = a.dst * NM_KM;
+      br = a.dir;
+    }
+
+    if (dk === null || br === null) return null;
+
+    return {
+      callsign: cs.replace(/\s+$/, ''),  // clean trailing spaces
+      alt: alt,
+      track: a.track || a.true_heading || null,
+      speed: a.gs || null,
+      distKm: dk,
+      bearing: br,
+      lat: a.lat,
+      lon: a.lon
+    };
+  }).filter(Boolean);
+}
+
+function clearBlips(){document.querySelectorAll('.blip').forEach(b=>b.remove());}
+
+function renderRadar(planes){
+  clearBlips();
+  const radar = document.getElementById('radar');
+  const maxD = RADIUS_NM * NM_KM;
+
+  planes.forEach(p => {
+    if(!p.distKm || !p.bearing) return;
+    const f = Math.min(p.distKm / maxD, 0.93);
+    const r = f * 50;
+    const ang = rad(p.bearing);
+    const x = 50 + r * Math.sin(ang);
+    const y = 50 - r * Math.cos(ang);
+
+    const bl = document.createElement('div');
+    bl.className = 'blip';
+    if(p.alt){
+      if(p.alt < 15000) bl.classList.add('low');
+      else if(p.alt > 25000) bl.classList.add('high');
+      else bl.classList.add('med');
+    }
+    bl.style.left = x + '%';
+    bl.style.top = y + '%';
+    bl.title = `${p.callsign} • ${Math.round(p.alt)} ft • ${p.distKm.toFixed(1)} km`;
+    bl.onclick = () => selectPlane(p);
+    radar.appendChild(bl);
+  });
+  
+  document.getElementById('radarCaption').textContent = 
+    `${planes.length} avions • rayon ~${Math.round(RADIUS_NM*NM_KM)} km (alt > ${MIN_ALT} ft)`;
+}
+
+function renderList(planes){
+  const wrap = document.getElementById('planeList');
+  if(!planes.length){
+    wrap.innerHTML = `<div class="empty-note">Aucun avion correspondant.</div>`;
+    return;
+  }
+  
+  wrap.innerHTML = planes.map((p,i)=>`
+    <div class="plane-card" data-idx="${i}">
+      <div class="dir-badge" style="transform:rotate(${p.track || p.bearing || 0}deg)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 L18 20 L12 16 L6 20 Z"/></svg>
+      </div>
+      <div class="info">
+        <div class="callsign">${escape(p.callsign)}</div>
+        <div class="meta">
+          <span class="alt">${Math.round(p.alt).toLocaleString('fr')} ft</span> • 
+          ${p.distKm.toFixed(1)} km • ${dirLabel(p.bearing)}
+          ${p.speed ? ' • ' + Math.round(p.speed) + ' kt' : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('.plane-card').forEach(card=>{
+    card.onclick = () => {
+      const idx = parseInt(card.dataset.idx);
+      selectPlane(planes[idx]);
+    };
+  });
+}
+
+document.getElementById('btnRefresh').onclick = fetchPlanes;
+
+document.getElementById('btnRandom').onclick = () => {
+  if(!state.planes.length) return alert("Rafraîchis d'abord le radar");
+  const p = state.planes[Math.floor(Math.random()*state.planes.length)];
+  selectPlane(p);
+};
+
+document.getElementById('btnManual').onclick = () => {
+  const cs = document.getElementById('manualCs').value.trim().toUpperCase();
+  if(!cs) return;
+  selectPlane({callsign:cs, alt:25000, track:null, speed:null, distKm:25, bearing:90});
+};
+
+// ==================== SELECTION & GUESS ====================
+function selectPlane(p){
+  state.selected = p;
+  save();
+
+  document.getElementById('guessCs').textContent = p.callsign;
+  let meta = [];
+  if(p.distKm) meta.push(p.distKm.toFixed(1)+" km");
+  if(p.bearing) meta.push(dirLabel(p.bearing));
+  if(p.alt) meta.push(Math.round(p.alt)+" ft");
+  document.getElementById('guessMeta').textContent = meta.join(" • ") || "Avion ajouté manuellement";
+
+  document.getElementById('guessRound').textContent = state.round;
+  ['gOrigin','gDest','gCityO','gCityD'].forEach(id => document.getElementById(id).value = '');
+  showScreen('screen-guess');
+}
+
+document.getElementById('btnBack').onclick = () => showScreen('screen-radar');
+
+// ==================== REVEAL ====================
+const COUNTRY_MAP = {"France":"France","United States":"États-Unis","United States of America":"États-Unis","USA":"États-Unis","United Kingdom":"Royaume-Uni","UK":"Royaume-Uni","Germany":"Allemagne","Spain":"Espagne","Italy":"Italie","Netherlands":"Pays-Bas","Belgium":"Belgique","Switzerland":"Suisse","Portugal":"Portugal","Ireland":"Irlande","Poland":"Pologne","Austria":"Autriche","Greece":"Grèce","Turkey":"Turquie","Morocco":"Maroc","Algeria":"Algérie","Tunisia":"Tunisie","Egypt":"Égypte","Russia":"Russie","China":"Chine","Japan":"Japon","South Korea":"Corée du Sud","India":"Inde","Thailand":"Thaïlande","Australia":"Australie","South Africa":"Afrique du Sud","Canada":"Canada","Brazil":"Brésil"};
+
+function norm(str){return (str||"").toString().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/^(le |la |les |l'|the |de |du )/i,"").replace(/[^a-z0-9]/g,"").trim()}
+function frName(en){return COUNTRY_MAP[en]||en}
+function countryMatch(g, actual){if(!g||!actual)return false; const n=norm(g);return n===norm(frName(actual))||n===norm(actual)}
+function cityMatch(g, actual){if(!g||!actual)return false;const n=norm(g),a=norm(actual);return n===a||(n.length>=3&&(a.startsWith(n)||n.startsWith(a)))}
+
+document.getElementById('btnReveal').onclick = async () => {
+  const cs = state.selected.callsign;
+  const g = {
+    origin: document.getElementById('gOrigin').value.trim(),
+    dest: document.getElementById('gDest').value.trim(),
+    cityO: document.getElementById('gCityO').value.trim(),
+    cityD: document.getElementById('gCityD').value.trim()
+  };
+
+  showScreen('screen-reveal');
+  document.getElementById('revealTag').textContent = cs;
+  document.getElementById('revealRoute').innerHTML = `<div class="status"><span class="dot"></span> <span>Recherche de la route du vol...</span></div>`;
+  document.getElementById('revealContent').innerHTML = '';
+
+  try{
+    const data = await safeFetch(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(cs)}`);
+    const fr = data.response && data.response.flightroute;
+    if(!fr || !fr.origin) throw new Error("no route");
+
+    renderReveal(fr, g);
+  }catch(e){
+    document.getElementById('revealRoute').innerHTML = `
+      <div class="empty-note">
+        Route inconnue pour <strong>${escape(cs)}</strong>.<br>
+        (vol privé, militaire ou non listé)
+      </div>`;
+    document.getElementById('revealContent').innerHTML = `
+      <button class="btn btn-ghost" onclick="nextRound()" style="margin-top:10px;width:100%">Passer à la manche suivante</button>`;
+  }
+};
+
+function renderReveal(fr, guess){
+  const o = fr.origin, d = fr.destination;
+  const oCountry = o.country_name || o.country;
+  const dCountry = d.country_name || d.country;
+
+  document.getElementById('revealRoute').innerHTML = `
+    <div class="airport">
+      <div class="lbl">ORIGINE</div>
+      <div class="city">${escape(o.municipality||o.name||'?')}</div>
+      <div class="country">${escape(frName(oCountry))}</div>
+    </div>
+    <div style="font-size:22px;color:#F4A340;align-self:center;margin-top:12px">→</div>
+    <div class="airport">
+      <div class="lbl">DESTINATION</div>
+      <div class="city">${escape(d.municipality||d.name||'?')}</div>
+      <div class="country">${escape(frName(dCountry))}</div>
+    </div>`;
+
+  const originOk = countryMatch(guess.origin, oCountry);
+  const destOk   = countryMatch(guess.dest, dCountry);
+  const coOk     = cityMatch(guess.cityO, o.municipality);
+  const cdOk     = cityMatch(guess.cityD, d.municipality);
+
+  let base = 0;
+  if(originOk) base += 10;
+  if(destOk) base += 10;
+  if(coOk) base += 5;
+  if(cdOk) base += 5;
+  if(originOk && destOk) base += 5;
+
+  const content = document.getElementById('revealContent');
+  content.innerHTML = `
+    <div style="margin:8px 0 4px;font-size:12px;color:#8B93A7">Tes réponses</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:14px">
+      <div style="background:#182241;padding:7px 10px;border-radius:8px">
+        <div style="font-size:10px;color:#64748b">Origine</div>
+        <strong>${escape(guess.origin||'—')}</strong>
+      </div>
+      <div style="background:#182241;padding:7px 10px;border-radius:8px">
+        <div style="font-size:10px;color:#64748b">Destination</div>
+        <strong>${escape(guess.dest||'—')}</strong>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <button class="toggle ${originOk?'on':''}" data-p="origin">Pays origine • 10</button>
+      <button class="toggle ${destOk?'on':''}" data-p="dest">Pays destination • 10</button>
+      ${guess.cityO?`<button class="toggle ${coOk?'on':''}" data-p="co">Ville origine • +5</button>`:''}
+      ${guess.cityD?`<button class="toggle ${cdOk?'on':''}" data-p="cd">Ville destination • +5</button>`:''}
+    </div>
+  `;
+
+  document.getElementById('points').textContent = base + " pts";
+  window._roundPoints = base;
+
+  content.querySelectorAll('.toggle').forEach(t => {
+    t.onclick = () => {
+      t.classList.toggle('on');
+      recalculate(content);
+    };
+  });
+
+  function recalculate(c){
+    let pts = 0;
+    c.querySelectorAll('.toggle').forEach(t=>{
+      if(t.classList.contains('on')){
+        pts += (t.dataset.p==='origin'||t.dataset.p==='dest') ? 10 : 5;
+      }
+    });
+    const oOn = c.querySelector('[data-p="origin"]').classList.contains('on');
+    const dOn = c.querySelector('[data-p="dest"]').classList.contains('on');
+    if(oOn && dOn) pts += 5;
+    document.getElementById('points').textContent = pts + " pts";
+    window._roundPoints = pts;
+  }
+
+  document.getElementById('btnNext').onclick = () => {
+    const pts = window._roundPoints || base;
+    state.score += pts;
+    updateScore();
+
+    state.history.unshift({
+      round: state.round,
+      cs: state.selected.callsign,
+      pts: pts,
+      route: `${o.iata_code||'—'}→${d.iata_code||'—'}`
+    });
+    save();
+
+    nextRound();
+  };
+}
+
+function nextRound(){
+  state.selected = null;
+  window._roundPoints = 0;
+  save();
+  showScreen('screen-radar');
+  fetchPlanes();
+}
+
+// ==================== HISTORY ====================
+function renderHistory(){
+  const wrap = document.getElementById('historyWrap');
+  const list = document.getElementById('historyList');
+  if(!state.history.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  list.innerHTML = state.history.slice(0,5).map(h=>`
+    <div class="history-item">
+      <span>Manche ${h.round} • ${escape(h.cs)} (${escape(h.route)})</span>
+      <span style="color:#F4A340;font-weight:600">+${h.pts}</span>
+    </div>`).join('');
+}
+
+// ==================== HELP & RESET ====================
+document.getElementById('btnReset').onclick = () => {
+  if(confirm("Réinitialiser le score et l'historique ?")){
+    state.score=0; state.history=[]; state.round=0;
+    save(); updateScore();
+    document.getElementById('historyWrap').style.display='none';
+  }
+};
+
+document.getElementById('btnHelp').onclick = () => {
+  alert("Pourquoi les données diffèrent de Flightradar24 ?\n\n" +
+        "• Flightradar24 utilise plusieurs sources + estimations\n" +
+        "• Ce radar utilise des données ADS-B communautaires ouvertes\n" +
+        "• Il peut y avoir 10-30 secondes de différence\n" +
+        "• Certains avions n'apparaissent pas sur les deux\n\n" +
+        "Conseil : compare la direction + altitude + distance approximative.\n" +
+        "Les indicatifs sont généralement corrects.");
+};
+
+// ==================== INIT ====================
+function init(){
+  updateScore();
+
+  if(state.loc && state.round > 0){
+    document.getElementById('round').textContent = state.round;
+    showScreen('screen-radar');
+    fetchPlanes();
+  }else{
+    showScreen('screen-loc');
+  }
+
+  const oldShow = showScreen;
+  window.showScreen = function(id){
+    oldShow(id);
+    if(id === 'screen-reveal') renderHistory();
+  };
+
+  // iPhone double-tap prevention
+  let lt=0;
+  document.addEventListener('touchend', e=>{
+    const now=Date.now();
+    if(now-lt<280) e.preventDefault();
+    lt=now;
+  }, {passive:false});
+
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && document.getElementById('screen-guess').style.display!=='none'){
+      document.getElementById('btnReveal').click();
+    }
+  });
+
+  console.log("%c[Radar Duel] v7 - Données corrigées (lat/lon prioritaire, filtre altitude, rayon réduit)", "color:#64748b");
+}
+
+init();
+
+})();
+</script>
 </body>
 </html>
